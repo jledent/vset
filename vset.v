@@ -258,19 +258,19 @@ Context `{Funext} `{Univalence}.
 Definition mem (x : Vset) : Vset -> hProp.
 Proof.
   apply Vset_rect'_nd with (fun A f _ => hp (hexists (fun a : A => x = f a)) _).
+  2: exact isset_hProp.
   intros. apply path_iff_hProp_uncurried.
   split.
-    intro. apply (minus1Trunc_rect_nondep (A := {a : A & x = f a})).
+    intro H1. apply (minus1Trunc_rect_nondep (A := {a : A & x = f a})).
       intros [a p]. generalize (fst X a). apply minus1Trunc_map.
         intros [b p']. exists b. path_via (f a).
       apply allpath_hprop.
-      exact X1.
-    intro. apply (minus1Trunc_rect_nondep (A := {b : B & x = g b})).
+      exact H1.
+    intro H1. apply (minus1Trunc_rect_nondep (A := {b : B & x = g b})).
       intros [b p]. generalize (snd X b). apply minus1Trunc_map.
         intros [a p']. exists a. path_via (g b).
       apply allpath_hprop.
-      exact X1.
-  exact isset_hProp.
+      exact H1.
 Defined.
 
 Notation " x ∈ v " := (mem x v)
@@ -289,15 +289,41 @@ Notation " x ⊆ y " := (subset x y)
 (* ** Bisimulation relation ** *)
 
 Definition bisim : Vset -> Vset -> hProp.
-refine (Vset_rect_nd (Vset -> hProp) (fun A f H_f => 
-          Vset_rect_nd hProp (fun B g _ => 
-            hp (forall a, hexists (fun b => H_f a (g b))
+refine (Vset_rect'_nd (Vset -> hProp) (fun A f H_f => 
+          Vset_rect'_nd hProp (fun B g _ => 
+            hp ((forall a, hexists (fun b => H_f a (g b)))
               * forall b, hexists (fun a => H_f a (g b))) _
           ) _ _
        ) _ _
 ).
 intros.
 apply (Funext_implies_NaiveFunext H).
+apply Vset_rect_hprop.
+2: intro; apply istrunc_paths, isset_hProp.
+intros C h _; simpl.
+apply path_iff_hProp_uncurried. split.
+intros [H1 H2]. split.
+  intro b. apply (minus1Trunc_rect_nondep (A := {a : A & H_f a = H_g b})).
+    intros [a p]. generalize (H1 a). apply minus1Trunc_map.
+      intros [c H3]. exists c. exact ((ap10 p (h c)) # H3).
+    apply allpath_hprop.
+    exact (snd X0 b).
+  intro c. apply (minus1Trunc_rect_nondep (A := {a : A & H_f a (h c)})).
+    intros [a H3]. generalize (fst X0 a). apply minus1Trunc_map.
+      intros [b p]. exists b. exact ((ap10 p (h c)) # H3).
+    apply allpath_hprop.
+    exact (H2 c).
+intros [H1 H2]. split.
+  intro a. apply (minus1Trunc_rect_nondep (A := {b : B & H_f a = H_g b})).
+    intros [b p]. generalize (H1 b). apply minus1Trunc_map.
+      intros [c H3]. exists c. exact ((ap10 p^ (h c)) # H3).
+    apply allpath_hprop.
+    exact (fst X0 a).
+  intro c. apply (minus1Trunc_rect_nondep (A := {b : B & H_g b (h c)})).
+    intros [b H3]. generalize (snd X0 b). apply minus1Trunc_map.
+      intros [a p]. exists a. exact ((ap10 p^ (h c)) # H3).
+    apply allpath_hprop.
+    exact (H2 c).
 Admitted.
 
 
