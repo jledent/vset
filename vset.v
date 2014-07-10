@@ -296,7 +296,7 @@ refine (Vset_rect'_nd (Vset -> hProp) (fun A f H_f =>
           ) _ _
        ) _ _
 ).
-intros.
+intros A B f g eq_img H_f H_g H_img.
 apply (Funext_implies_NaiveFunext H).
 apply Vset_rect_hprop.
 2: intro; apply istrunc_paths, isset_hProp.
@@ -307,9 +307,9 @@ intros [H1 H2]. split.
     intros [a p]. generalize (H1 a). apply minus1Trunc_map.
       intros [c H3]. exists c. exact ((ap10 p (h c)) # H3).
     apply allpath_hprop.
-    exact (snd X0 b).
+    exact (snd H_img b).
   intro c. apply (minus1Trunc_rect_nondep (A := {a : A & H_f a (h c)})).
-    intros [a H3]. generalize (fst X0 a). apply minus1Trunc_map.
+    intros [a H3]. generalize (fst H_img a). apply minus1Trunc_map.
       intros [b p]. exists b. exact ((ap10 p (h c)) # H3).
     apply allpath_hprop.
     exact (H2 c).
@@ -318,12 +318,16 @@ intros [H1 H2]. split.
     intros [b p]. generalize (H1 b). apply minus1Trunc_map.
       intros [c H3]. exists c. exact ((ap10 p^ (h c)) # H3).
     apply allpath_hprop.
-    exact (fst X0 a).
+    exact (fst H_img a).
   intro c. apply (minus1Trunc_rect_nondep (A := {b : B & H_g b (h c)})).
-    intros [b H3]. generalize (snd X0 b). apply minus1Trunc_map.
+    intros [b H3]. generalize (snd H_img b). apply minus1Trunc_map.
       intros [a p]. exists a. exact ((ap10 p^ (h c)) # H3).
     apply allpath_hprop.
     exact (H2 c).
+Grab Existential Variables.
+intros B B' g g' eq_img H_g H_g' H_img; simpl.
+(* Check path_iff_hprop_uncurried. *)
+
 Admitted.
 
 
