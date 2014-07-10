@@ -291,8 +291,8 @@ Notation " x ⊆ y " := (subset x y)
 Definition bisim : Vset -> Vset -> hProp.
 refine (Vset_rect'_nd (Vset -> hProp) (fun A f H_f => 
           Vset_rect'_nd hProp (fun B g _ => 
-            hp ((forall a, hexists (fun b => H_f a (g b)))
-              * forall b, hexists (fun a => H_f a (g b))) _
+            hp ( (forall a, hexists (fun b => H_f a (g b)))
+                * forall b, hexists (fun a => H_f a (g b)) ) _
           ) _ _
        ) _ _
 ).
@@ -331,82 +331,15 @@ intros B B' g g' eq_img H_g H_g' H_img; simpl.
 Admitted.
 
 
-(* ** Axioms of set theory (theorem 10.5.8) ** *)
+(* ** Definitions of particular sets in Vset ** *)
 
-Definition Emptyset : Vset := set (Empty_rect (fun _ => Vset)).
+Definition Vempty : Vset := set (Empty_rect (fun _ => Vset)).
 
-Lemma not_in_emptyset : forall x, ~ (x ∈ Emptyset).
-Proof.
-  intro; intro. apply (minus1Trunc_rect_nondep (A := {a : Empty & x = (Empty_rect (fun _ => Vset)) a})).
-  intros [ff _]. exact ff.
-  apply allpath_hprop.
-  exact X.
-Qed.
+Definition Vsingleton (u : Vset) := set (Unit_rect u).
 
-Lemma extensionality : forall x y : Vset, (x ⊆ y * y ⊆ x) <-> x = y.
-Proof.
-  refine (Vset_rect_hprop _ _ _). intros A f _.
-  refine (Vset_rect_hprop _ _ _). intros B g _.
-  split. intro. destruct X. apply setext'. split.
-    intro. apply (h (f a)). apply min1. exists a; reflexivity.
-    intro. apply (minus1Trunc_rect_nondep (A := {a : A & g b = f a})).
-      intros [a p]. apply min1. exists a. exact p^.
-      apply allpath_hprop.
-      apply (h0 (g b)). apply min1. exists b; reflexivity.
-  intro p; split. intros z h. apply (transport (fun x => z ∈ x) p h).
-  intros z h. apply (transport (fun x => z ∈ x) p^ h).
-Qed.
+Definition Vpair (u : Vset) (v : Vset) := set (fun b : Bool => if b then u else v).
 
-Lemma pairing : forall u v, hexists (fun w => forall x, x ∈ w <-> hor (x = u) (x = v)).
-Proof.
-  intros. apply min1. exists (set (fun b : Bool => if b then u else v)).
-  intro; split.
-    intro. generalize X. apply minus1Trunc_map.
-      intros [b p]. destruct b. left; assumption. right; assumption.
-    intro. generalize X. apply minus1Trunc_map.
-      intros [h | h]. exists true; assumption. exists false; assumption.
-Qed.
-
-Lemma mem_induction (C : Vset -> hProp)
-: (forall v, (forall x, x ∈ v -> C x) -> C v) -> forall v, C v.
-Proof.
-  intro.
-  apply Vset_rect_hprop.
-    intros. apply X. intros. apply (minus1Trunc_rect_nondep (A := {a : A & x = f a})).
-      intro. destruct X1. rewrite p. apply H_f.
-      apply isp.
-      assumption.
-    intro. apply isp.
-Defined.
-
-Lemma replacement : forall (r : Vset -> Vset) (x : Vset),
-  hexists (fun w => forall y, y ∈ w <-> hexists (fun z => z ∈ x * (y = r z))).
-Proof.
-  intro r. apply Vset_rect_hprop.
-  intros A f _. apply min1. exists (set (r ∘ f)). split.
-    apply minus1Trunc_map.
-      intros [a p]. exists (f a). split. apply min1; exists a; auto. assumption.
-    intro. apply (minus1Trunc_rect_nondep (A := {z : Vset & z ∈ set f * (y = r z)})).
-      intros [z [h p]]. generalize h. apply minus1Trunc_map.
-        intros [a p']. exists a. path_via (r z). rewrite p'; auto.
-      apply allpath_hprop.
-      exact X.
-  intro. apply minus1Trunc_is_prop.
-Qed.
-
-Lemma separation (C : Vset -> hProp) : forall a : Vset,
-  hexists (fun w => forall x, x ∈ w <-> x ∈ a * (C x)).
-Proof.
-  apply Vset_rect_hprop.
-  intros A f _. apply min1. exists (set (fun z : {a : A & C (f a)} => f (pr1 z))). split.
-    intro. apply (minus1Trunc_rect_nondep (A := {z : {a : A & C (f a)} & x = f (pr1 z)})).
-      intros [[a h] p]. split. apply min1; exists a; assumption. rewrite p; exact h.
-      apply allpath_hprop.
-      exact X.
-    intros [h0 h]. generalize h0. apply minus1Trunc_map.
-      intros [a p]. exists (a; transport C p h). exact p.
-  intro; apply minus1Trunc_is_prop.
-Qed.
+Definition Vpair_ord (u : Vset) (v : Vset) := Vpair u (Vpair u v).
 
 (* Vsucc x := x ∪ {x} *)
 Definition Vsucc : Vset -> Vset.
@@ -414,23 +347,102 @@ Proof.
   apply Vset_rect'_nd with (fun A f _ =>
     set (fun (x : A + Unit) => match x with inl a => f a
                                           | inr tt => set f end)).
-  intros. apply setext'. split.
+  intros A B f g eq_img _ _ _. apply setext'. split.
     intro. destruct a.
-      generalize (fst X a). apply minus1Trunc_map.
+      generalize (fst eq_img a). apply minus1Trunc_map.
         intros [b p]. exists (inl b); exact p.
       apply min1; exists (inr tt). destruct u. apply setext'; auto.
     intro. destruct b.
-      generalize (snd X b). apply minus1Trunc_map. 
+      generalize (snd eq_img b). apply minus1Trunc_map. 
         intros [a p]. exists (inl a); exact p.
       apply min1; exists (inr tt). destruct u. apply setext'; auto.
   exact is0trunc_vset.
 Defined.
 
-Fixpoint I n := match n with 0   => Emptyset
-                           | S n => Vsucc (I n) end.
-Definition omega : Vset := set I.
+Definition omega : Vset
+:= set (fix I n := match n with 0   => Vempty
+                              | S n => Vsucc (I n) end).
 
-Lemma infinity : (Emptyset ∈ omega) * (forall x, x ∈ omega -> Vsucc x ∈ omega).
+
+(* ** Axioms of set theory (theorem 10.5.8) ** *)
+
+Lemma not_mem_Vempty : forall x, ~ (x ∈ Vempty).
+Proof.
+  intros x Hx. apply (minus1Trunc_rect_nondep (A := {a : Empty & x = (Empty_rect (fun _ => Vset)) a})).
+  intros [ff _]. exact ff.
+  apply allpath_hprop.
+  exact Hx.
+Qed.
+
+Lemma extensionality : forall x y : Vset, (x ⊆ y * y ⊆ x) <-> x = y.
+Proof.
+  refine (Vset_rect_hprop _ _ _). intros A f _.
+  refine (Vset_rect_hprop _ _ _). intros B g _.
+  split.
+  intros [H1 H2]. apply setext'. split.
+    intro. apply (H1 (f a)). apply min1. exists a; reflexivity.
+    intro. apply (minus1Trunc_rect_nondep (A := {a : A & g b = f a})).
+      intros [a p]. apply min1. exists a. exact p^.
+      apply allpath_hprop.
+      apply (H2 (g b)). apply min1. exists b; reflexivity.
+  intro p; split.
+    intros z Hz. apply (transport (fun x => z ∈ x) p Hz).
+    intros z Hz. apply (transport (fun x => z ∈ x) p^ Hz).
+Qed.
+
+Lemma pairing : forall u v, hexists (fun w => forall x, x ∈ w <-> hor (x = u) (x = v)).
+Proof.
+  intros u v. apply min1. exists (Vpair u v).
+  intro; split.
+    apply minus1Trunc_map. intros [b p]. destruct b.
+      left; assumption. right; assumption.
+    apply minus1Trunc_map. intros [h | h].
+      exists true; assumption. exists false; assumption.
+Qed.
+
+Lemma mem_induction (C : Vset -> hProp)
+: (forall v, (forall x, x ∈ v -> C x) -> C v) -> forall v, C v.
+Proof.
+  intro H1.
+  apply Vset_rect_hprop.
+  2: intro; apply isp.
+  intros A f H_f. apply H1. intros x Hx.
+  apply (minus1Trunc_rect_nondep (A := {a : A & x = f a})).
+    intros [a p]. rewrite p. apply H_f.
+    apply isp.
+    assumption.
+Defined.
+
+Lemma replacement : forall (r : Vset -> Vset) (x : Vset),
+  hexists (fun w => forall y, y ∈ w <-> hexists (fun z => z ∈ x * (y = r z))).
+Proof.
+  intro r. apply Vset_rect_hprop.
+  2: intro; apply minus1Trunc_is_prop.
+  intros A f _. apply min1. exists (set (r ∘ f)). split.
+  apply minus1Trunc_map.
+    intros [a p]. exists (f a). split. apply min1; exists a; auto. assumption.
+  intro H1. apply (minus1Trunc_rect_nondep (A := {z : Vset & z ∈ set f * (y = r z)})).
+    intros [z [h p]]. generalize h. apply minus1Trunc_map.
+      intros [a p']. exists a. path_via (r z). rewrite p'; auto.
+    apply allpath_hprop.
+    exact H1.
+Qed.
+
+Lemma separation (C : Vset -> hProp) : forall a : Vset,
+  hexists (fun w => forall x, x ∈ w <-> x ∈ a * (C x)).
+Proof.
+  apply Vset_rect_hprop.
+  2: intro; apply minus1Trunc_is_prop.
+  intros A f _. apply min1. exists (set (fun z : {a : A & C (f a)} => f (pr1 z))). split.
+  intro H1. apply (minus1Trunc_rect_nondep (A := {z : {a : A & C (f a)} & x = f (pr1 z)})).
+    intros [[a h] p]. split. apply min1; exists a; assumption. rewrite p; exact h.
+    apply allpath_hprop.
+    exact H1.
+  intros [H1 H2]. generalize H1. apply minus1Trunc_map.
+    intros [a p]. exists (a; transport C p H2). exact p.
+Qed.
+
+Lemma infinity : (Vempty ∈ omega) * (forall x, x ∈ omega -> Vsucc x ∈ omega).
 Proof.
   split. apply min1; exists 0; auto.
   intro. apply minus1Trunc_map.
