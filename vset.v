@@ -86,7 +86,7 @@ Local Inductive Vset : Type :=
 
 Axiom setext : forall {A B : Type} (R : A -> B -> hProp)
   (bitot_R : Bitot R) (h : RPushout R -> Vset),
-set (h ∘ (inL R)) = set (h ∘ (inR R)).
+set (h o (inL R)) = set (h o (inR R)).
 
 Axiom is0trunc_vset : IsTrunc 0 Vset.
 
@@ -326,10 +326,30 @@ intros [H1 H2]. split.
     exact (H2 c).
 Grab Existential Variables.
 intros B B' g g' eq_img H_g H_g' H_img; simpl.
-(* Check path_iff_hprop_uncurried. *)
-
-Admitted.
-
+apply path_iff_hProp_uncurried. split.
+intros [H1 H2]; split.
+  intro a. apply (minus1Trunc_rect_nondep (A := {b : B & H_f a (g b)})).
+    intros [b H3]. generalize (fst eq_img b). apply minus1Trunc_map.
+      intros [b' p]. exists b'. exact (transport (fun x => H_f a x) p H3).
+    apply allpath_hprop.
+    exact (H1 a).
+  intro b'. apply (minus1Trunc_rect_nondep (A := {b : B & g b = g' b'})).
+    intros [b p]. generalize (H2 b). apply minus1Trunc_map.
+      intros [a H3]. exists a. exact (transport (fun x => H_f a x) p H3).
+    apply allpath_hprop.
+    exact (snd eq_img b').
+intros [H1 H2]; split.
+  intro a. apply (minus1Trunc_rect_nondep (A := {b' : B' & H_f a (g' b')})).
+    intros [b' H3]. generalize (snd eq_img b'). apply minus1Trunc_map.
+      intros [b p]. exists b. exact (transport (fun x => H_f a x) p^ H3).
+    apply allpath_hprop.
+    exact (H1 a).
+  intro b. apply (minus1Trunc_rect_nondep (A := {b' : B' & g b = g' b'})).
+    intros [b' p]. generalize (H2 b'). apply minus1Trunc_map.
+      intros [a H3]. exists a. exact (transport (fun x => H_f a x) p^ H3).
+    apply allpath_hprop.
+    exact (fst eq_img b).
+Defined.
 
 (* ** Definitions of particular sets in Vset ** *)
 
