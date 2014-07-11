@@ -251,7 +251,7 @@ Defined.
 
 
 Section AssumeAxioms.
-Context `{Funext} `{Univalence}.
+Context `{fs : Funext} `{ua : Univalence}.
 
 (* ** Membership relation ** *)
 
@@ -261,16 +261,16 @@ Proof.
   2: exact isset_hProp.
   intros. apply path_iff_hProp_uncurried.
   split.
-    intro H1. apply (minus1Trunc_rect_nondep (A := {a : A & x = f a})).
+    intro H. apply (minus1Trunc_rect_nondep (A := {a : A & x = f a})).
       intros [a p]. generalize (fst X a). apply minus1Trunc_map.
         intros [b p']. exists b. path_via (f a).
       apply allpath_hprop.
-      exact H1.
-    intro H1. apply (minus1Trunc_rect_nondep (A := {b : B & x = g b})).
+      exact H.
+    intro H. apply (minus1Trunc_rect_nondep (A := {b : B & x = g b})).
       intros [b p]. generalize (snd X b). apply minus1Trunc_map.
         intros [a p']. exists a. path_via (g b).
       apply allpath_hprop.
-      exact H1.
+      exact H.
 Defined.
 
 Notation " x ∈ v " := (mem x v)
@@ -288,16 +288,47 @@ Notation " x ⊆ y " := (subset x y)
 
 (* ** Bisimulation relation ** *)
 
-Definition bisim : Vset -> Vset -> hProp.
-refine (Vset_rect'_nd (Vset -> hProp) (fun A f H_f => 
-          Vset_rect'_nd hProp (fun B g _ => 
-            hp ( (forall a, hexists (fun b => H_f a (g b)))
-                * forall b, hexists (fun a => H_f a (g b)) ) _
-          ) _ _
-       ) _ _
-).
+(* We need to assume a different instance of Funext to avoid universe inconsistency *)
+Definition bisim `{fs' : Funext} : Vset -> Vset -> hProp.
+
+  (* We first fix the first argument as set(A,f) and define bisim_aux : Vset -> hProp, by induction. This is the inner of the two inductions. *)
+  Definition bisim_aux (A : Type) (f : A -> Vset) (H_f : A -> Vset -> hProp) : (Vset -> hProp).
+  apply Vset_rect'_nd with
+    (fun B g _ => hp ( (forall a, hexists (fun b => H_f a (g b)))
+                      * forall b, hexists (fun a => H_f a (g b)) ) _
+    ).
+  2: apply isset_hProp.
+  intros B B' g g' eq_img H_g H_g' H_img; simpl.
+  apply path_iff_hProp_uncurried. split.
+  intros [H1 H2]; split.
+   intro a. apply (minus1Trunc_rect_nondep (A := {b : B & H_f a (g b)})).
+     intros [b H3]. generalize (fst eq_img b). apply minus1Trunc_map.
+       intros [b' p]. exists b'. exact (transport (fun x => H_f a x) p H3).
+     apply allpath_hprop.
+     exact (H1 a).
+   intro b'. apply (minus1Trunc_rect_nondep (A := {b : B & g b = g' b'})).
+     intros [b p]. generalize (H2 b). apply minus1Trunc_map.
+       intros [a H3]. exists a. exact (transport (fun x => H_f a x) p H3).
+     apply allpath_hprop.
+     exact (snd eq_img b').
+  intros [H1 H2]; split.
+   intro a. apply (minus1Trunc_rect_nondep (A := {b' : B' & H_f a (g' b')})).
+     intros [b' H3]. generalize (snd eq_img b'). apply minus1Trunc_map.
+        intros [b p]. exists b. exact (transport (fun x => H_f a x) p^ H3).
+      apply allpath_hprop.
+      exact (H1 a).
+   intro b. apply (minus1Trunc_rect_nondep (A := {b' : B' & g b = g' b'})).
+     intros [b' p]. generalize (H2 b'). apply minus1Trunc_map.
+       intros [a H3]. exists a. exact (transport (fun x => H_f a x) p^ H3).
+     apply allpath_hprop.
+     exact (fst eq_img b).
+  Defined.
+
+(* Then define bisim : Vset -> (Vset -> hProp) by induction again *)
+refine (Vset_rect'_nd (Vset -> hProp) bisim_aux _ _).
 intros A B f g eq_img H_f H_g H_img.
-apply (Funext_implies_NaiveFunext H).
+apply (Funext_implies_NaiveFunext fs').
+clear fs'. (* Necessary to avoid universe inconsistency *)
 apply Vset_rect_hprop.
 2: intro; apply istrunc_paths, isset_hProp.
 intros C h _; simpl.
@@ -324,32 +355,8 @@ intros [H1 H2]. split.
       intros [a p]. exists a. exact ((ap10 p^ (h c)) # H3).
     apply allpath_hprop.
     exact (H2 c).
-Grab Existential Variables.
-intros B B' g g' eq_img H_g H_g' H_img; simpl.
-apply path_iff_hProp_uncurried. split.
-intros [H1 H2]; split.
-  intro a. apply (minus1Trunc_rect_nondep (A := {b : B & H_f a (g b)})).
-    intros [b H3]. generalize (fst eq_img b). apply minus1Trunc_map.
-      intros [b' p]. exists b'. exact (transport (fun x => H_f a x) p H3).
-    apply allpath_hprop.
-    exact (H1 a).
-  intro b'. apply (minus1Trunc_rect_nondep (A := {b : B & g b = g' b'})).
-    intros [b p]. generalize (H2 b). apply minus1Trunc_map.
-      intros [a H3]. exists a. exact (transport (fun x => H_f a x) p H3).
-    apply allpath_hprop.
-    exact (snd eq_img b').
-intros [H1 H2]; split.
-  intro a. apply (minus1Trunc_rect_nondep (A := {b' : B' & H_f a (g' b')})).
-    intros [b' H3]. generalize (snd eq_img b'). apply minus1Trunc_map.
-      intros [b p]. exists b. exact (transport (fun x => H_f a x) p^ H3).
-    apply allpath_hprop.
-    exact (H1 a).
-  intro b. apply (minus1Trunc_rect_nondep (A := {b' : B' & g b = g' b'})).
-    intros [b' p]. generalize (H2 b'). apply minus1Trunc_map.
-      intros [a H3]. exists a. exact (transport (fun x => H_f a x) p^ H3).
-    apply allpath_hprop.
-    exact (fst eq_img b).
 Defined.
+
 
 (* ** Definitions of particular sets in Vset ** *)
 
@@ -416,17 +423,17 @@ Proof.
   intro; split.
     apply minus1Trunc_map. intros [b p]. destruct b.
       left; assumption. right; assumption.
-    apply minus1Trunc_map. intros [h | h].
+    apply minus1Trunc_map. intros [H | H].
       exists true; assumption. exists false; assumption.
 Qed.
 
 Lemma mem_induction (C : Vset -> hProp)
 : (forall v, (forall x, x ∈ v -> C x) -> C v) -> forall v, C v.
 Proof.
-  intro H1.
+  intro H.
   apply Vset_rect_hprop.
   2: intro; apply isp.
-  intros A f H_f. apply H1. intros x Hx.
+  intros A f H_f. apply H. intros x Hx.
   apply (minus1Trunc_rect_nondep (A := {a : A & x = f a})).
     intros [a p]. rewrite p. apply H_f.
     apply isp.
@@ -441,11 +448,11 @@ Proof.
   intros A f _. apply min1. exists (set (r ∘ f)). split.
   apply minus1Trunc_map.
     intros [a p]. exists (f a). split. apply min1; exists a; auto. assumption.
-  intro H1. apply (minus1Trunc_rect_nondep (A := {z : Vset & z ∈ set f * (y = r z)})).
+  intro H. apply (minus1Trunc_rect_nondep (A := {z : Vset & z ∈ set f * (y = r z)})).
     intros [z [h p]]. generalize h. apply minus1Trunc_map.
       intros [a p']. exists a. path_via (r z). rewrite p'; auto.
     apply allpath_hprop.
-    exact H1.
+    exact H.
 Qed.
 
 Lemma separation (C : Vset -> hProp) : forall a : Vset,
@@ -454,10 +461,10 @@ Proof.
   apply Vset_rect_hprop.
   2: intro; apply minus1Trunc_is_prop.
   intros A f _. apply min1. exists (set (fun z : {a : A & C (f a)} => f (pr1 z))). split.
-  intro H1. apply (minus1Trunc_rect_nondep (A := {z : {a : A & C (f a)} & x = f (pr1 z)})).
+  intro H. apply (minus1Trunc_rect_nondep (A := {z : {a : A & C (f a)} & x = f (pr1 z)})).
     intros [[a h] p]. split. apply min1; exists a; assumption. rewrite p; exact h.
     apply allpath_hprop.
-    exact H1.
+    exact H.
   intros [H1 H2]. generalize H1. apply minus1Trunc_map.
     intros [a p]. exists (a; transport C p H2). exact p.
 Qed.
