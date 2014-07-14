@@ -388,15 +388,56 @@ Defined.
 
 (* ** Definitions of particular sets in Vset ** *)
 
+(* The empty set *)
 Definition Vempty : Vset := set (Empty_rect (fun _ => Vset)).
 
+(* The singleton {u} *)
 Definition Vsingleton (u : Vset) := set (Unit_rect u).
 
+(* The pair {u,v} *)
 Definition Vpair (u : Vset) (v : Vset) := set (fun b : Bool => if b then u else v).
 
+(* The ordered pair (u,v) *)
 Definition Vpair_ord (u : Vset) (v : Vset) := Vpair u (Vpair u v).
 
-(* Vsucc x := x ∪ {x} *)
+(* The cartesian product a × b *)
+Definition Vcart_prod : Vset -> Vset -> Vset.
+  Definition Vcart_prod_aux (A : Type) (f : A -> Vset) (H_f : A -> Vset -> Vset) : Vset -> Vset.
+  apply Vset_rect'_nd with (fun B g _ => 
+    set (fun (x : A * B) => Vpair_ord (f (fst x)) (g (snd x))) ).
+  2: exact is0trunc_vset.
+  intros B B' g g' eq_img _ _ _.
+  apply setext'; split.
+  intros (a, b). generalize (fst eq_img b). apply minus1Trunc_map.
+    intros [b' p]. exists (a, b'). simpl.
+    exact (transport (fun x => Vpair_ord (f a) (g b) = Vpair_ord (f a) x) p 1).
+  intros (a, b'). generalize (snd eq_img b'). apply minus1Trunc_map.
+    intros [b p]. exists (a, b). simpl.
+    exact (transport (fun x => Vpair_ord (f a) (g b) = Vpair_ord (f a) x) p 1).
+  Defined.
+refine (Vset_rect'_nd (Vset -> Vset) Vcart_prod_aux _ _).
+intros A B f g eq_img H_f H_g _.
+apply (Funext_implies_NaiveFunext fs).
+apply Vset_rect_hprop.
+2: intro; apply istrunc_paths; apply is0trunc_vset.
+intros C h _; simpl.
+apply setext'; split.
+intros (a,c). generalize (fst eq_img a). apply minus1Trunc_map.
+  intros [b p]. exists (b, c). simpl.
+  exact (transport (fun x => Vpair_ord (f a) (h c) = Vpair_ord x (h c)) p 1).
+intros (b,c). generalize (snd eq_img b). apply minus1Trunc_map.
+  intros [a p]. exists (a, c). simpl.
+  exact (transport (fun x => Vpair_ord (f a) (h c) = Vpair_ord x (h c)) p 1).
+Defined.
+
+Notation " a × b " := (Vcart_prod a b)
+  (at level 25).
+
+(* f is a function with domain a and codomain b *)
+Definition isFunc (a : Vset) (b : Vset) (f : Vset) := f ⊆ a × b
+ * (forall x y y' : Vset, (Vpair_ord x y) ∈ f * (Vpair_ord x y') ∈ f -> y = y').
+
+(* The ordinal successor x ∪ {x} *)
 Definition Vsucc : Vset -> Vset.
 Proof.
   apply Vset_rect'_nd with (fun A f _ =>
@@ -414,6 +455,7 @@ Proof.
   exact is0trunc_vset.
 Defined.
 
+(* The set of finite ordinals *) 
 Definition omega : Vset
 := set (fix I n := match n with 0   => Vempty
                               | S n => Vsucc (I n) end).
@@ -455,6 +497,17 @@ Proof.
       exists true; assumption. exists false; assumption.
 Qed.
 
+Lemma infinity : (Vempty ∈ omega) * (forall x, x ∈ omega -> Vsucc x ∈ omega).
+Proof.
+  split. apply min1; exists 0; auto.
+  intro. apply minus1Trunc_map.
+    intros [n p]. exists (S n). rewrite p; auto.
+Qed.
+
+(* Union *)
+
+(* Function *)
+
 Lemma mem_induction (C : Vset -> hProp)
 : (forall v, (forall x, x ∈ v -> C x) -> C v) -> forall v, C v.
 Proof.
@@ -495,13 +548,6 @@ Proof.
     exact H.
   intros [H1 H2]. generalize H1. apply minus1Trunc_map.
     intros [a p]. exists (a; transport C p H2). exact p.
-Qed.
-
-Lemma infinity : (Vempty ∈ omega) * (forall x, x ∈ omega -> Vsucc x ∈ omega).
-Proof.
-  split. apply min1; exists 0; auto.
-  intro. apply minus1Trunc_map.
-    intros [n p]. exists (S n). rewrite p; auto.
 Qed.
 
 
