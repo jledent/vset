@@ -435,7 +435,8 @@ Notation " a × b " := (Vcart_prod a b)
 
 (* f is a function with domain a and codomain b *)
 Definition isFunc (a : Vset) (b : Vset) (f : Vset) := f ⊆ a × b
- * (forall x y y' : Vset, (Vpair_ord x y) ∈ f * (Vpair_ord x y') ∈ f -> y = y').
+ * (forall x, x ∈ a -> hexists (fun y => y ∈ b * (Vpair_ord x y) ∈ f))
+ * (forall x y y', (Vpair_ord x y) ∈ f * (Vpair_ord x y') ∈ f -> y = y').
 
 (* The ordinal successor x ∪ {x} *)
 Definition Vsucc : Vset -> Vset.
