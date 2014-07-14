@@ -188,6 +188,7 @@ Proof.
   assumption.
 Defined.
 
+(* We might also want to prove the associated computation rules *)
 Definition Vset_rect' (P : Vset -> Type)
   (H_0trunc : forall v : Vset, IsTrunc 0 (P v))
   (H_set : forall (A : Type) (f : A -> Vset) (H_f : forall a : A, P (f a)), P (set f))
@@ -355,6 +356,33 @@ intros [H1 H2]. split.
       intros [a p]. exists a. exact ((ap10 p^ (h c)) # H3).
     apply allpath_hprop.
     exact (H2 c).
+Defined.
+
+Notation " u ~~ v " := (bisim u v)
+  (at level 30).
+
+Lemma reflexive_bisim `{fs' : Funext} : forall u, u ~~ u.
+Proof.
+  refine (Vset_rect_hprop _ _ _).
+  intros A f H_f; simpl. split.
+    intro a; apply min1; exists a; auto.
+    intro a; apply min1; exists a; auto.
+Defined.
+
+Lemma is_eq_bisim `{fs' : Funext} : forall u v : Vset, (u = v) = (u ~~ v).
+Proof.
+  intros u v.
+  apply path_iff_hprop_uncurried; split.
+  intro p; exact (transport (fun x => u ~~ x) p (reflexive_bisim u)).
+  generalize u v.
+  refine (Vset_rect_hprop _ _ _); intros A f H_f.
+  refine (Vset_rect_hprop _ _ _); intros B g _.
+  intro H; simpl in H; destruct H as [H1 H2].
+  apply setext'. split.
+  intro a. generalize (H1 a). apply minus1Trunc_map.
+    intros [b h]. exists b; exact (H_f a (g b) h).
+  intro b. generalize (H2 b). apply minus1Trunc_map.
+    intros [a h]. exists a; exact (H_f a (g b) h).
 Defined.
 
 
