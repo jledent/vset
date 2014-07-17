@@ -572,7 +572,11 @@ Proof.
   exists e.
   exists pr1.
   split. split. split.
-  - admit. (* should be easy *)
+  - intros [b h] [b' h']. apply (trunc_equiv' (A := b = b')).
+    equiv_via {p : b = b' & transport (fun x => minus1Trunc (hfiber f x)) p h = h'}.
+      apply equiv_inverse. refine (BuildEquiv _ _ pr1 _).
+      refine (BuildEquiv _ _ (path_sigma_uncurried _ (b; h) (b'; h')) _).
+    apply istrunc_paths. assumption.
   - unfold is_epi. intros [b h].
     generalize h; apply minus1Trunc_map_dep; intros [a p].
     exists a. unfold e; simpl.
@@ -598,7 +602,7 @@ Proof.
     + intro a. apply min1; exists (eu a). exact (ap10 factor a).
     + intro a'. generalize (epi_eu a'). apply minus1Trunc_map.
       intros [a p]. exists a. path_via (mu (eu a)).
-      exact (ap10 factor a). exact (ap mu p).
+      exact (ap10 factor a). exact (ap mu p). 
   - intro v. apply hprop_allpath.
     intros [Au [mu ((hset, mono), p)]].
     intros [Au' [mu' ((hset', mono'), p')]].
