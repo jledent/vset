@@ -555,6 +555,7 @@ Qed.
 
 (* ** Canonical representation of Vsets (Lemma 10.5.6) ** *)
 
+(* Not useful anymore ?
 Lemma set_0trunc (A : Type) (f : A -> Vset) : set f = set (Truncation_rect_nondep f).
 Proof.
   apply setext'; split.
@@ -562,13 +563,68 @@ Proof.
   apply Truncation_rect. intro; apply trunc_succ.
   intro a; apply min1; exists a. simpl. reflexivity.
 Defined.
+*)
 
-Lemma inj_surj_factor {A B : Type} {H : IsHSet B} (f : A -> B)
-: exists (C : Type) (e : A -> C) (m : C -> B), IsHSet C * is_epi e * is_mono m * (f = m ∘ e).
+
+Definition hfiber_bisim `{fs' : Funext} {A : Type} (f : A -> Vset) (y : Vset) := { x : A & f x ~~ y }.
+
+Lemma inj_surj_factor_bisim `{fs' : Funext} {A : Type} (f : A -> Vset)
+: exists (C : Type) (e : A -> C) (m : C -> Vset), IsHSet C * is_epi e * is_mono m * (f = m ∘ e).
 Proof.
-  pose (imf := {b : B & minus1Trunc (hfiber f b)}).
+  pose (imf := {v : Vset & minus1Trunc (hfiber_bisim f v)}).
   exists imf.
-  pose (e := fun a => (f a; min1 (a; 1)) : imf).
+  pose (e := fun a => (f a; min1 (a; reflexive_bisim (f a))) : imf).
+  exists e.
+  exists pr1.
+  split. split. split.
+  - intros [b h] [b' h']. apply (trunc_equiv' (A := b = b')).
+    equiv_via {p : b = b' & transport (fun x => minus1Trunc (hfiber_bisim f x)) p h = h'}.
+      apply equiv_inverse. refine (BuildEquiv _ _ pr1 _).
+      refine (BuildEquiv _ _ (path_sigma_uncurried _ (b; h) (b'; h')) _).
+    apply istrunc_paths. apply is0trunc_vset.
+  - unfold is_epi. intros [b h].
+    generalize h; apply minus1Trunc_map_dep; intros [a p].
+    exists a. unfold e; simpl.
+    apply path_sigma_uncurried; simpl.
+    exists (transport (fun X : Type => X) (is_eq_bisim (f a) b)^ p).
+    apply allpath_hprop.
+  - unfold is_mono. intro b.
+    apply hprop_allpath. intros [[b1 h1] p1] [[b2 h2] p2]. simpl in *.
+    apply path_sigma_uncurried; simpl.
+    assert ((b1; h1) = (b2; h2) :> imf).
+      apply path_sigma_uncurried; simpl. exists (p1 @ p2^). apply allpath_hprop.
+    exists X. apply allpath_hprop.
+  - apply (Funext_implies_NaiveFunext fs). intro a. reflexivity.
+Defined.
+
+
+
+Lemma set_mono_repr `{fs' : Funext} : forall u, exists (Au : Type) (m : Au -> Vset),
+  (IsHSet Au) * (is_mono m) * (u = set m).
+Proof.
+  apply Vset_rect_hprop.
+  - intros A f _.
+    destruct (inj_surj_factor_bisim f) as [Au [eu [mu (((hset_Au, epi_eu), mono_mu), factor)]]].
+    exists Au, mu. split. exact (hset_Au, mono_mu).
+    apply setext'; split.
+    + intro a. apply min1; exists (eu a). exact (ap10 factor a).
+    + intro a'. generalize (epi_eu a'). apply minus1Trunc_map.
+      intros [a p]. exists a. path_via (mu (eu a)).
+      exact (ap10 factor a). exact (ap mu p). 
+  - intro v. apply hprop_allpath.
+    intros [Au [mu ((hset, mono), p)]].
+    intros [Au' [mu' ((hset', mono'), p')]].
+Admitted.
+
+
+
+(* Different way, without using hfiber_bisim
+Lemma inj_surj_factor' {fs' : Funext} {A : Type} (f : A -> Vset)
+: exists (C : Type) (e : A -> C) (m : C -> Vset), IsHSet C * is_epi e * is_mono m * (f = m ∘ e).
+Proof.
+  pose (imf := {b : Vset & minus1Trunc (hfiber f b)}).
+  exists imf.
+  pose (e := fun a => (f a; min1 (a; transport (fun X : Type => X) (is_eq_bisim (f a) (f a))^ (reflexive_bisim (f a)))) : imf).
   exists e.
   exists pr1.
   split. split. split.
@@ -576,7 +632,7 @@ Proof.
     equiv_via {p : b = b' & transport (fun x => minus1Trunc (hfiber f x)) p h = h'}.
       apply equiv_inverse. refine (BuildEquiv _ _ pr1 _).
       refine (BuildEquiv _ _ (path_sigma_uncurried _ (b; h) (b'; h')) _).
-    apply istrunc_paths. assumption.
+    apply istrunc_paths. apply is0trunc_vset.
   - unfold is_epi. intros [b h].
     generalize h; apply minus1Trunc_map_dep; intros [a p].
     exists a. unfold e; simpl.
@@ -591,12 +647,12 @@ Proof.
   - apply (Funext_implies_NaiveFunext fs). intro a. reflexivity.
 Defined.
 
-Lemma set_mono_repr : forall u, exists (Au : Type) (m : Au -> Vset),
+Lemma set_mono_repr' : forall u, exists (Au : Type) (m : Au -> Vset),
   (IsHSet Au) * (is_mono m) * (u = set m).
 Proof.
   apply Vset_rect_hprop.
   - intros A f _.
-    destruct (inj_surj_factor f) as [Au [eu [mu (((hset_Au, epi_eu), mono_mu), factor)]]].
+    destruct (inj_surj_factor' f) as [Au [eu [mu (((hset_Au, epi_eu), mono_mu), factor)]]].
     exists Au, mu. split. exact (hset_Au, mono_mu).
     apply setext'; split.
     + intro a. apply min1; exists (eu a). exact (ap10 factor a).
@@ -606,7 +662,9 @@ Proof.
   - intro v. apply hprop_allpath.
     intros [Au [mu ((hset, mono), p)]].
     intros [Au' [mu' ((hset', mono'), p')]].
-    (* looks like mu could be different from mu' ? *)
+    apply path_sigma_uncurried; simpl.
 Admitted.
+*)
+
 
 End AssumeAxioms.
