@@ -604,6 +604,59 @@ Lemma equiv_fib {A B : Type} (f : A -> B) : A <~> {b : B & hfiber f b}.
 Proof.
 Admitted.
 
+Lemma mono_cancel {A B : Type} (m : A -> B) : is_mono m -> (forall a a', m a = m a' -> a = a').
+Proof.
+  intros H a a' p.
+  specialize (H (m a')). unfold hfiber in *.
+  assert ((a; p) = (a'; 1) :> {x : A & m x = m a'}) by apply allpath_hprop.
+  apply (path_sigma_uncurried (fun x => m x = m a') (a; p) (a'; 1))^-1.
+  assumption.
+Defined.
+
+(* This doesn't seem to work (i get a universe inconsistency error)
+Section Uniqueness.
+Context {Au Au': Type} (mu : Au -> Vset) (mono : is_mono mu)
+  (mu' : Au' -> Vset) (mono' : is_mono mu') (p : set mu = set mu').
+
+Definition eq_img_untrunc : (forall a : Au, {a' : Au' & mu' a' = mu a})
+                    * (forall a' : Au', {a : Au & mu a = mu' a'}).
+Proof.
+  split.
+  intro a. exact (untrunc (transport (fun x => mu a ∈ x) p (min1 (a; 1))) (mono' (mu a))).
+  intro a'. exact (untrunc (transport (fun x => mu' a' ∈ x) p^ (min1 (a'; 1))) (mono (mu' a'))).
+Defined.
+
+Let e : Au -> Au' := fun a => pr1 (fst eq_img_untrunc a).
+Let inv_e : Au' -> Au := fun a' => pr1 (snd eq_img_untrunc a').
+
+Definition hom1 : forall a : Au, inv_e (e a) = a.
+Proof.
+  intro a.
+  apply (mono_cancel mu mono).
+  path_via (mu' (e a)).
+  exact (pr2 (snd eq_img_untrunc (e a))).
+  exact (pr2 (fst eq_img_untrunc a)).
+Defined. 
+
+Definition hom2 : forall a' : Au', e (inv_e a') = a'.
+Proof.
+  intro a'.
+  apply (mono_cancel mu' mono').
+  path_via (mu (inv_e a')).
+  exact (pr2 (fst eq_img_untrunc (inv_e a'))).
+  exact (pr2 (snd eq_img_untrunc a')).
+Defined. 
+
+Lemma path : Au = Au'.
+Proof.
+  apply path_universe_uncurried.
+  exists e.
+  apply (BuildIsEquiv Au Au' e inv_e hom1 hom2 _).
+
+End Uniqueness.
+*)
+
+
 (* This lemma actually says a little more than 10.5.6, i.e., that Au is a hSet *)
 Lemma set_mono_repr `{fs' : Funext} : forall u, exists (Au : Type) (m : Au -> Vset),
   (IsHSet Au) * (is_mono m) * (u = set m).
@@ -621,12 +674,6 @@ Proof.
     intros [Au [mu ((hset, mono), p)]].
     intros [Au' [mu' ((hset', mono'), p')]].
     apply path_sigma_uncurried; simpl.
-
-(* Coq tries to prove by itself that this is an equivalence and takes forever:
-    exists (path_universe (fun a : Au =>
-      pr1 (untrunc (transport (fun x => mu a ∈ x) (p^ @ p') (min1 (a; 1))) (mono' (mu a)))
-    )).
-*)
 
 Admitted.
 
