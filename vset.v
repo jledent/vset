@@ -572,7 +572,6 @@ Proof.
   pose (imf := {u : Vset & minus1Trunc (hfiber f u)}).
   exists imf.
   pose (e := fun a => (f a; min1 (a; transport (fun X : Type => X) (is_eq_bisim (f a) (f a))^ (reflexive_bisim (f a)))) : imf).
-(* This definition of e is necessary to avoid a universe inconsistency in the next lemma by using bisimulation instead of equality *)
   exists e.
   exists pr1.
   split. split. split.
@@ -654,9 +653,37 @@ Defined.
 
 Lemma path `{ua' : Univalence} : Au = Au'.
 Proof.
-  apply (@path_universe_uncurried ua').
-  exists e.
+  apply (@path_universe ua') with e.
   apply (BuildIsEquiv Au Au' e inv_e hom1 hom2 adj).
+Defined.
+
+Lemma mu_eq_mu' : transport (fun A : Type => A -> Vset) path mu = mu'.
+Proof.
+  apply (Funext_implies_NaiveFunext fs). intro a'.
+  path_via (transport (fun X => Vset) path (mu (transport (fun X : Type => X) path^ a'))).
+  apply (@transport_arrow Type (fun X : Type => X) (fun X => Vset) Au Au' path mu a').
+  path_via (mu (transport idmap path^ a')).
+  apply transport_const.
+  path_via (mu (inv_e a')).
+  2: apply (pr2 (snd eq_img_untrunc a')).
+  refine (transport (fun x => mu (transport idmap path^ a') = mu x) _ 1).
+(* looks like there is some trouble identifying e^-1 and inv_e
+   exact (
+     (transport (fun x => transport idmap path^ a' = transport idmap x a') (path_universe_V e)^ 1)
+    @ (@transport_path_universe ua Au' Au inv_e _ a')
+   ).
+*)
+Admitted.
+
+Lemma uniqueness : (Au; (mu; (h, mono))) = (Au'; (mu'; (h', mono'))) :> {A : Type & {m : A -> Vset & IsHSet A * is_mono m}}.
+Proof.
+  apply path_sigma_uncurried; simpl.
+  exists path.
+  path_via (path # mu; transportD (fun A => A -> Vset) (fun A m => IsHSet A * is_mono m) path mu (h, mono)).
+  apply (@transport_sigma Type (fun A => A -> Vset) (fun A m => IsHSet A * is_mono m) Au Au' path (mu; (h, mono))).
+  apply path_sigma_uncurried; simpl.
+  exists mu_eq_mu'.
+  apply allpath_hprop.
 Defined.
 
 End Uniqueness.
