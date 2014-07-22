@@ -613,9 +613,9 @@ Proof.
   assumption.
 Defined.
 
-(* This doesn't seem to work (i get a universe inconsistency error)
+
 Section Uniqueness.
-Context {Au Au': Type} (mu : Au -> Vset) (mono : is_mono mu)
+Context {Au Au': Type} {h : IsHSet Au} {h' : IsHSet Au'} (mu : Au -> Vset) (mono : is_mono mu)
   (mu' : Au' -> Vset) (mono' : is_mono mu') (p : set mu = set mu').
 
 Definition eq_img_untrunc : (forall a : Au, {a' : Au' & mu' a' = mu a})
@@ -629,32 +629,37 @@ Defined.
 Let e : Au -> Au' := fun a => pr1 (fst eq_img_untrunc a).
 Let inv_e : Au' -> Au := fun a' => pr1 (snd eq_img_untrunc a').
 
-Definition hom1 : forall a : Au, inv_e (e a) = a.
-Proof.
-  intro a.
-  apply (mono_cancel mu mono).
-  path_via (mu' (e a)).
-  exact (pr2 (snd eq_img_untrunc (e a))).
-  exact (pr2 (fst eq_img_untrunc a)).
-Defined. 
-
-Definition hom2 : forall a' : Au', e (inv_e a') = a'.
+Definition hom1 : Sect inv_e e.
 Proof.
   intro a'.
   apply (mono_cancel mu' mono').
   path_via (mu (inv_e a')).
   exact (pr2 (fst eq_img_untrunc (inv_e a'))).
   exact (pr2 (snd eq_img_untrunc a')).
-Defined. 
+Defined.
 
-Lemma path : Au = Au'.
+Definition hom2 : Sect e inv_e.
 Proof.
-  apply path_universe_uncurried.
+  intro a.
+  apply (mono_cancel mu mono).
+  path_via (mu' (e a)).
+  exact (pr2 (snd eq_img_untrunc (e a))).
+  exact (pr2 (fst eq_img_untrunc a)).
+Defined.
+
+Definition adj : forall a : Au, hom1 (e a) = ap e (hom2 a).
+Proof.
+  intro. apply allpath_hprop.
+Defined.
+
+Lemma path `{ua' : Univalence} : Au = Au'.
+Proof.
+  apply (@path_universe_uncurried ua').
   exists e.
-  apply (BuildIsEquiv Au Au' e inv_e hom1 hom2 _).
+  apply (BuildIsEquiv Au Au' e inv_e hom1 hom2 adj).
+Defined.
 
 End Uniqueness.
-*)
 
 
 (* This lemma actually says a little more than 10.5.6, i.e., that Au is a hSet *)
