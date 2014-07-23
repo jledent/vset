@@ -599,10 +599,6 @@ Proof.
   intros. strip_truncations. assumption.
 Defined. 
 
-Lemma equiv_fib {A B : Type} (f : A -> B) : A <~> {b : B & hfiber f b}.
-Proof.
-Admitted.
-
 Lemma mono_cancel {A B : Type} (m : A -> B) : is_mono m -> (forall a a', m a = m a' -> a = a').
 Proof.
   intros H a a' p.
@@ -612,17 +608,16 @@ Proof.
   assumption.
 Defined.
 
-
 Section Uniqueness.
-Context {Au Au': Type} {h : IsHSet Au} {h' : IsHSet Au'} (mu : Au -> Vset) (mono : is_mono mu)
-  (mu' : Au' -> Vset) (mono' : is_mono mu') (p : set mu = set mu').
+Context {v : Vset} {Au Au': Type} {h : IsHSet Au} {h' : IsHSet Au'} {mu : Au -> Vset} {mono : is_mono mu}
+  {mu' : Au' -> Vset} {mono' : is_mono mu'} {p : v = set mu} {p' : v = set mu'}.
 
-Definition eq_img_untrunc : (forall a : Au, {a' : Au' & mu' a' = mu a})
-                    * (forall a' : Au', {a : Au & mu a = mu' a'}).
+Lemma eq_img_untrunc : (forall a : Au, {a' : Au' & mu' a' = mu a})
+                     * (forall a' : Au', {a : Au & mu a = mu' a'}).
 Proof.
   split.
-  intro a. exact (untrunc (transport (fun x => mu a ∈ x) p (min1 (a; 1))) (mono' (mu a))).
-  intro a'. exact (untrunc (transport (fun x => mu' a' ∈ x) p^ (min1 (a'; 1))) (mono (mu' a'))).
+  intro a. exact (untrunc (transport (fun x => mu a ∈ x) (p^ @ p') (min1 (a; 1))) (mono' (mu a))).
+  intro a'. exact (untrunc (transport (fun x => mu' a' ∈ x) (p'^ @ p) (min1 (a'; 1))) (mono (mu' a'))).
 Defined.
 
 Let e : Au -> Au' := fun a => pr1 (fst eq_img_untrunc a).
@@ -675,12 +670,12 @@ Proof.
 *)
 Admitted.
 
-Lemma uniqueness : (Au; (mu; (h, mono))) = (Au'; (mu'; (h', mono'))) :> {A : Type & {m : A -> Vset & IsHSet A * is_mono m}}.
+Lemma uniqueness : (Au; (mu; (h, mono, p))) = (Au'; (mu'; (h', mono', p'))) :> {A : Type & {m : A -> Vset & IsHSet A * is_mono m * (v = set m)}}.
 Proof.
   apply path_sigma_uncurried; simpl.
   exists path.
-  path_via (path # mu; transportD (fun A => A -> Vset) (fun A m => IsHSet A * is_mono m) path mu (h, mono)).
-  apply (@transport_sigma Type (fun A => A -> Vset) (fun A m => IsHSet A * is_mono m) Au Au' path (mu; (h, mono))).
+  path_via (path # mu; transportD (fun A => A -> Vset) (fun A m => IsHSet A * is_mono m * (v = set m)) path mu (h, mono, p)).
+  apply (@transport_sigma Type (fun A => A -> Vset) (fun A m => IsHSet A * is_mono m * (v = set m)) Au Au' path (mu; (h, mono, p))).
   apply path_sigma_uncurried; simpl.
   exists mu_eq_mu'.
   apply allpath_hprop.
@@ -705,9 +700,8 @@ Proof.
   - intro v. apply hprop_allpath.
     intros [Au [mu ((hset, mono), p)]].
     intros [Au' [mu' ((hset', mono'), p')]].
-    apply path_sigma_uncurried; simpl.
-
-Admitted.
+    apply uniqueness.
+Defined.
 
 
 End AssumeAxioms.
