@@ -641,41 +641,38 @@ Proof.
   exact (pr2 (fst eq_img_untrunc a)).
 Defined.
 
-Definition adj : forall a : Au, hom1 (e a) = ap e (hom2 a).
+Definition adj : forall a' : Au', hom2 (inv_e a') = ap inv_e (hom1 a').
 Proof.
   intro. apply allpath_hprop.
 Defined.
 
-Lemma path `{ua' : Univalence} : Au = Au'.
+Lemma path `{ua' : Univalence} : Au' = Au.
 Proof.
-  apply (@path_universe ua') with e.
-  apply (BuildIsEquiv Au Au' e inv_e hom1 hom2 adj).
+  apply (@path_universe ua') with inv_e.
+  apply (BuildIsEquiv Au' Au inv_e e hom2 hom1 adj).
 Defined.
 
-Lemma mu_eq_mu' : transport (fun A : Type => A -> Vset) path mu = mu'.
+Lemma mu_eq_mu' : transport (fun A : Type => A -> Vset) path^ mu = mu'.
 Proof.
   apply (Funext_implies_NaiveFunext fs). intro a'.
-  path_via (transport (fun X => Vset) path (mu (transport (fun X : Type => X) path^ a'))).
-  apply (@transport_arrow Type (fun X : Type => X) (fun X => Vset) Au Au' path mu a').
-  path_via (mu (transport idmap path^ a')).
+  path_via (transport (fun X => Vset) path^ (mu (transport (fun X : Type => X) path^^ a'))).
+  apply (@transport_arrow Type (fun X : Type => X) (fun X => Vset) Au Au' path^ mu a').
+  path_via (mu (transport idmap path^^ a')).
   apply transport_const.
   path_via (mu (inv_e a')).
   2: apply (pr2 (snd eq_img_untrunc a')).
-  refine (transport (fun x => mu (transport idmap path^ a') = mu x) _ 1).
-(* looks like there is some trouble identifying e^-1 and inv_e
-   exact (
-     (transport (fun x => transport idmap path^ a' = transport idmap x a') (path_universe_V e)^ 1)
-    @ (@transport_path_universe ua Au' Au inv_e _ a')
-   ).
-*)
-Admitted.
+  refine (ap mu _).
+  path_via (transport idmap path a').
+  exact (ap (fun x => transport idmap x a') (inv_V path)).
+  apply transport_path_universe.
+Defined.
 
 Lemma uniqueness : (Au; (mu; (h, mono, p))) = (Au'; (mu'; (h', mono', p'))) :> {A : Type & {m : A -> Vset & IsHSet A * is_mono m * (v = set m)}}.
 Proof.
   apply path_sigma_uncurried; simpl.
-  exists path.
-  path_via (path # mu; transportD (fun A => A -> Vset) (fun A m => IsHSet A * is_mono m * (v = set m)) path mu (h, mono, p)).
-  apply (@transport_sigma Type (fun A => A -> Vset) (fun A m => IsHSet A * is_mono m * (v = set m)) Au Au' path (mu; (h, mono, p))).
+  exists path^.
+  path_via (path^ # mu; transportD (fun A => A -> Vset) (fun A m => IsHSet A * is_mono m * (v = set m)) path^ mu (h, mono, p)).
+  apply (@transport_sigma Type (fun A => A -> Vset) (fun A m => IsHSet A * is_mono m * (v = set m)) Au Au' path^ (mu; (h, mono, p))).
   apply path_sigma_uncurried; simpl.
   exists mu_eq_mu'.
   apply allpath_hprop.
