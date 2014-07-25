@@ -8,9 +8,7 @@ Local Open Scope equiv_scope.
 Generalizable Variables A B R f g h.
 
 
-(* ** Misc. definitions ** *)
-
-Definition hor (P:Type) (Q:Type):Type:= minus1Trunc (P + Q).
+(* ** Misc. definitions & lemmas ** *)
 
 Definition compose {A B C} (g : forall b, C b) (f : A -> B) :=
   fun x : A => g (f x).
@@ -20,6 +18,21 @@ Hint Unfold compose.
 Notation " g ∘ f " := (compose g f)
   (at level 40, left associativity).
 
+Definition hor (P:Type) (Q:Type):Type:= minus1Trunc (P + Q).
+
+Lemma untrunc {P : Type} : (minus1Trunc P) -> (IsHProp P) -> P.
+Proof.
+  intros. strip_truncations. assumption.
+Defined. 
+
+Lemma mono_cancel {A B : Type} (m : A -> B) : is_mono m -> (forall a a', m a = m a' -> a = a').
+Proof.
+  intros H a a' p.
+  specialize (H (m a')). unfold hfiber in *.
+  assert ((a; p) = (a'; 1) :> {x : A & m x = m a'}) by apply allpath_hprop.
+  apply (path_sigma_uncurried (fun x => m x = m a') (a; p) (a'; 1))^-1.
+  assumption.
+Defined.
 
 (* ** Pushout with respect to a relation ** *)
 
@@ -79,7 +92,7 @@ Definition Bitot {A B : Type} (R : A -> B -> hProp) :=
 
 (* ** Cumulative hierarchy ** *)
 
-Module Export VHierarchy.
+Module Export CumulativeHierarchy.
 
 Local Inductive Vset : Type :=
 | set {A : Type} (f : A -> Vset) : Vset.
@@ -114,7 +127,7 @@ Axiom Vset_comp_setext : forall (P : Vset -> Type)
 apD (Vset_rect P H_set H_setext H_0trunc) (setext R bitot_R h)
 = H_setext A B R bitot_R h ((Vset_rect P H_set H_setext H_0trunc) ∘ h).
 
-End VHierarchy.
+End CumulativeHierarchy.
 
 
 (* ** The non-dependent eliminator ** *)
@@ -385,174 +398,6 @@ Proof.
 Defined.
 
 
-(* ** Definitions of particular sets in Vset ** *)
-
-(* The empty set *)
-Definition Vempty : Vset := set (Empty_rect (fun _ => Vset)).
-
-(* The singleton {u} *)
-Definition Vsingleton (u : Vset) := set (Unit_rect u).
-
-(* The pair {u,v} *)
-Definition Vpair (u : Vset) (v : Vset) := set (fun b : Bool => if b then u else v).
-
-(* The ordered pair (u,v) *)
-Definition Vpair_ord (u : Vset) (v : Vset) := Vpair u (Vpair u v).
-
-(* The cartesian product a × b *)
-Definition Vcart_prod : Vset -> Vset -> Vset.
-  Definition Vcart_prod_aux (A : Type) (f : A -> Vset) (H_f : A -> Vset -> Vset) : Vset -> Vset.
-  apply Vset_rect'_nd with (fun B g _ => 
-    set (fun (x : A * B) => Vpair_ord (f (fst x)) (g (snd x))) ).
-  2: exact is0trunc_vset.
-  intros B B' g g' eq_img _ _ _.
-  apply setext'; split.
-  - intros (a, b). generalize (fst eq_img b). apply minus1Trunc_map.
-    intros [b' p]. exists (a, b'). simpl.
-    exact (transport (fun x => Vpair_ord (f a) (g b) = Vpair_ord (f a) x) p 1).
-  - intros (a, b'). generalize (snd eq_img b'). apply minus1Trunc_map.
-    intros [b p]. exists (a, b). simpl.
-    exact (transport (fun x => Vpair_ord (f a) (g b) = Vpair_ord (f a) x) p 1).
-  Defined.
-refine (Vset_rect'_nd (Vset -> Vset) Vcart_prod_aux _ _).
-intros A B f g eq_img H_f H_g _.
-apply (Funext_implies_NaiveFunext fs).
-apply Vset_rect_hprop.
-2: intro; apply istrunc_paths; apply is0trunc_vset.
-intros C h _; simpl.
-apply setext'; split.
-- intros (a,c). generalize (fst eq_img a). apply minus1Trunc_map.
-  intros [b p]. exists (b, c). simpl.
-  exact (transport (fun x => Vpair_ord (f a) (h c) = Vpair_ord x (h c)) p 1).
-- intros (b,c). generalize (snd eq_img b). apply minus1Trunc_map.
-  intros [a p]. exists (a, c). simpl.
-  exact (transport (fun x => Vpair_ord (f a) (h c) = Vpair_ord x (h c)) p 1).
-Defined.
-
-Notation " a × b " := (Vcart_prod a b)
-  (at level 25).
-
-(* f is a function with domain a and codomain b *)
-Definition isFunc (a : Vset) (b : Vset) (f : Vset) := f ⊆ a × b
- * (forall x, x ∈ a -> hexists (fun y => y ∈ b * (Vpair_ord x y) ∈ f))
- * (forall x y y', (Vpair_ord x y) ∈ f * (Vpair_ord x y') ∈ f -> y = y').
-
-(* The ordinal successor x ∪ {x} *)
-Definition Vsucc : Vset -> Vset.
-Proof.
-  apply Vset_rect'_nd with (fun A f _ =>
-    set (fun (x : A + Unit) => match x with inl a => f a
-                                          | inr tt => set f end)).
-  2: exact is0trunc_vset.
-  intros A B f g eq_img _ _ _. apply setext'. split.
-    - intro. destruct a.
-      + generalize (fst eq_img a). apply minus1Trunc_map.
-        intros [b p]. exists (inl b); exact p.
-      + apply min1; exists (inr tt). destruct u. apply setext'; auto.
-    - intro. destruct b.
-      + generalize (snd eq_img b). apply minus1Trunc_map. 
-        intros [a p]. exists (inl a); exact p.
-      + apply min1; exists (inr tt). destruct u. apply setext'; auto.
-Defined.
-
-(* The set of finite ordinals *) 
-Definition omega : Vset
-:= set (fix I n := match n with 0   => Vempty
-                              | S n => Vsucc (I n) end).
-
-
-(* ** Axioms of set theory (theorem 10.5.8) ** *)
-
-Lemma not_mem_Vempty : forall x, ~ (x ∈ Vempty).
-Proof.
-  intros x Hx. apply (minus1Trunc_rect_nondep (A := {a : Empty & (Empty_rect (fun _ => Vset)) a = x})).
-  intros [ff _]. exact ff.
-  apply allpath_hprop.
-  exact Hx.
-Qed.
-
-Lemma extensionality : forall x y : Vset, (x ⊆ y * y ⊆ x) <-> x = y.
-Proof.
-  refine (Vset_rect_hprop _ _ _). intros A f _.
-  refine (Vset_rect_hprop _ _ _). intros B g _.
-  split.
-  - intros [H1 H2]. apply setext'. split.
-    intro. apply (minus1Trunc_rect_nondep (A := {b : B & g b = f a})).
-      intros [b p]. apply min1. exists b. exact p^.
-      apply allpath_hprop.
-      apply (H1 (f a)). apply min1. exists a; reflexivity.
-    intro. apply (H2 (g b)). apply min1. exists b; reflexivity.
-  - intro p; split.
-    intros z Hz. apply (transport (fun x => z ∈ x) p Hz).
-    intros z Hz. apply (transport (fun x => z ∈ x) p^ Hz).
-Qed.
-
-Lemma pairing : forall u v, hexists (fun w => forall x, x ∈ w <-> hor (x = u) (x = v)).
-Proof.
-  intros u v. apply min1. exists (Vpair u v).
-  intro; split.
-  - apply minus1Trunc_map. intros [b p]. destruct b.
-    left; exact p^. right; exact p^.
-  - apply minus1Trunc_map. intros [p | p].
-    exists true; exact p^. exists false; exact p^.
-Qed.
-
-Lemma infinity : (Vempty ∈ omega) * (forall x, x ∈ omega -> Vsucc x ∈ omega).
-Proof.
-  split. apply min1; exists 0; auto.
-  intro. apply minus1Trunc_map.
-  intros [n p]. exists (S n). rewrite p; auto.
-Qed.
-
-(* Union *)
-
-Lemma function_set : forall u v, hexists (fun w => forall x, x ∈ w <-> isFunc u v x).
-Proof.
-Admitted.
-
-
-Lemma mem_induction (C : Vset -> hProp)
-: (forall v, (forall x, x ∈ v -> C x) -> C v) -> forall v, C v.
-Proof.
-  intro H.
-  apply Vset_rect_hprop.
-  2: intro; apply isp.
-  intros A f H_f. apply H. intros x Hx.
-  apply (minus1Trunc_rect_nondep (A := {a : A & f a = x})).
-    intros [a p]. exact (transport C p (H_f a)).
-    apply isp.
-    assumption.
-Defined.
-
-Lemma replacement : forall (r : Vset -> Vset) (x : Vset),
-  hexists (fun w => forall y, y ∈ w <-> hexists (fun z => z ∈ x * (r z = y))).
-Proof.
-  intro r. apply Vset_rect_hprop.
-  2: intro; apply minus1Trunc_is_prop.
-  intros A f _. apply min1. exists (set (r ∘ f)). split.
-  - apply minus1Trunc_map.
-    intros [a p]. exists (f a). split. apply min1; exists a; auto. assumption.
-  - intro H. apply (minus1Trunc_rect_nondep (A := {z : Vset & z ∈ set f * (r z = y)})).
-      intros [z [h p]]. generalize h. apply minus1Trunc_map.
-        intros [a p']. exists a. path_via (r z). exact (ap r p').
-      apply allpath_hprop.
-      exact H.
-Qed.
-
-Lemma separation (C : Vset -> hProp) : forall a : Vset,
-  hexists (fun w => forall x, x ∈ w <-> x ∈ a * (C x)).
-Proof.
-  apply Vset_rect_hprop.
-  2: intro; apply minus1Trunc_is_prop.
-  intros A f _. apply min1. exists (set (fun z : {a : A & C (f a)} => f (pr1 z))). split.
-  - intro H. apply (minus1Trunc_rect_nondep (A := {z : {a : A & C (f a)} & f (pr1 z) = x})).
-      intros [[a h] p]. split. apply min1; exists a; assumption. exact (transport C p h).
-      apply allpath_hprop.
-      exact H.
-  - intros [H1 H2]. generalize H1. apply minus1Trunc_map.
-      intros [a p]. exists (a; transport C p^ H2). exact p.
-Qed.
-
 
 (* ** Canonical representation of Vsets (Lemma 10.5.6) ** *)
 
@@ -566,7 +411,7 @@ Proof.
 Defined.
 *)
 
-Lemma inj_surj_factor {fs' : Funext} {A : Type} (f : A -> Vset)
+Lemma inj_surj_factor_vset {fs' : Funext} {A : Type} (f : A -> Vset)
 : exists (C : Type) (e : A -> C) (m : C -> Vset), IsHSet C * is_epi e * is_mono m * (f = m ∘ e).
 Proof.
   pose (imf := {u : Vset & minus1Trunc (hfiber f u)}).
@@ -594,23 +439,12 @@ Proof.
   - apply (Funext_implies_NaiveFunext fs). intro a. reflexivity.
 Defined.
 
-Lemma untrunc {P : Type} : (minus1Trunc P) -> (IsHProp P) -> P.
-Proof.
-  intros. strip_truncations. assumption.
-Defined. 
 
-Lemma mono_cancel {A B : Type} (m : A -> B) : is_mono m -> (forall a a', m a = m a' -> a = a').
-Proof.
-  intros H a a' p.
-  specialize (H (m a')). unfold hfiber in *.
-  assert ((a; p) = (a'; 1) :> {x : A & m x = m a'}) by apply allpath_hprop.
-  apply (path_sigma_uncurried (fun x => m x = m a') (a; p) (a'; 1))^-1.
-  assumption.
-Defined.
+Section SetMono_Uniqueness.
+(* Given u : Vset, we want to show that the representation u = @set Au mu, where Au is an hSet and mu is monic, is unique. *)
 
-Section Uniqueness.
-Context {v : Vset} {Au Au': Type} {h : IsHSet Au} {h' : IsHSet Au'} {mu : Au -> Vset} {mono : is_mono mu}
-  {mu' : Au' -> Vset} {mono' : is_mono mu'} {p : v = set mu} {p' : v = set mu'}.
+Context {u : Vset} {Au Au': Type} {h : IsHSet Au} {h' : IsHSet Au'} {mu : Au -> Vset} {mono : is_mono mu}
+  {mu' : Au' -> Vset} {mono' : is_mono mu'} {p : u = set mu} {p' : u = set mu'}.
 
 Lemma eq_img_untrunc : (forall a : Au, {a' : Au' & mu' a' = mu a})
                      * (forall a' : Au', {a : Au & mu a = mu' a'}).
@@ -667,27 +501,26 @@ Proof.
   apply transport_path_universe.
 Defined.
 
-Lemma uniqueness : (Au; (mu; (h, mono, p))) = (Au'; (mu'; (h', mono', p'))) :> {A : Type & {m : A -> Vset & IsHSet A * is_mono m * (v = set m)}}.
+Lemma set_mono_uniqueness : (Au; (mu; (h, mono, p))) = (Au'; (mu'; (h', mono', p'))) :> {A : Type & {m : A -> Vset & IsHSet A * is_mono m * (u = set m)}}.
 Proof.
   apply path_sigma_uncurried; simpl.
   exists path^.
-  path_via (path^ # mu; transportD (fun A => A -> Vset) (fun A m => IsHSet A * is_mono m * (v = set m)) path^ mu (h, mono, p)).
-  apply (@transport_sigma Type (fun A => A -> Vset) (fun A m => IsHSet A * is_mono m * (v = set m)) Au Au' path^ (mu; (h, mono, p))).
+  path_via (path^ # mu; transportD (fun A => A -> Vset) (fun A m => IsHSet A * is_mono m * (u = set m)) path^ mu (h, mono, p)).
+  apply (@transport_sigma Type (fun A => A -> Vset) (fun A m => IsHSet A * is_mono m * (u = set m)) Au Au' path^ (mu; (h, mono, p))).
   apply path_sigma_uncurried; simpl.
   exists mu_eq_mu'.
   apply allpath_hprop.
 Defined.
 
-End Uniqueness.
-
+End SetMono_Uniqueness.
 
 (* This lemma actually says a little more than 10.5.6, i.e., that Au is a hSet *)
-Lemma set_mono_repr `{fs' : Funext} : forall u, exists (Au : Type) (m : Au -> Vset),
+Lemma set_mono_repr : forall u, exists (Au : Type) (m : Au -> Vset),
   (IsHSet Au) * (is_mono m) * (u = set m).
 Proof.
   apply Vset_rect_hprop.
   - intros A f _.
-    destruct (inj_surj_factor f) as [Au [eu [mu (((hset_Au, epi_eu), mono_mu), factor)]]].
+    destruct (inj_surj_factor_vset f) as [Au [eu [mu (((hset_Au, epi_eu), mono_mu), factor)]]].
     exists Au, mu. split. exact (hset_Au, mono_mu).
     apply setext'; split.
     + intro a. apply min1; exists (eu a). exact (ap10 factor a).
@@ -697,8 +530,201 @@ Proof.
   - intro v. apply hprop_allpath.
     intros [Au [mu ((hset, mono), p)]].
     intros [Au' [mu' ((hset', mono'), p')]].
-    apply uniqueness.
+    apply set_mono_uniqueness.
+(* Universe inconsistency *)
+Admitted.
+
+Definition memType (u : Vset) : Type := pr1 (set_mono_repr u).
+
+Notation " [ u ] " := (memType u)
+  (at level 20).
+
+Definition memFunc {u : Vset} : [u] -> Vset := pr1 (pr2 (set_mono_repr u)) : [u] -> Vset.
+
+Definition is_hset_memType (u : Vset) : IsHSet ([u]) := fst (fst (pr2 (pr2 (set_mono_repr u)))).
+
+Definition is_mono_memFunc (u : Vset) : is_mono memFunc := snd (fst (pr2 (pr2 (set_mono_repr u)))).
+
+Definition is_valid_presentation (u : Vset) : u = set memFunc := snd (pr2 (pr2 (set_mono_repr u))).
+
+
+(* ** Definitions of particular sets in Vset ** *)
+
+(* The empty set *)
+Definition V_empty : Vset := set (Empty_rect (fun _ => Vset)).
+
+(* The singleton {u} *)
+Definition V_singleton (u : Vset) := set (Unit_rect u).
+
+(* The pair {u,v} *)
+Definition V_pair (u : Vset) (v : Vset) := set (fun b : Bool => if b then u else v).
+
+(* The ordered pair (u,v) *)
+Definition V_pair_ord (u : Vset) (v : Vset) := V_pair u (V_pair u v).
+
+Notation " [ u , v ] " := (V_pair_ord u v)
+  (at level 20).
+
+(* The cartesian product a × b *)
+Definition V_cart_prod (a : Vset) (b : Vset) : Vset
+:= set (fun x : [a] * [b] => [memFunc (fst x), memFunc (snd x)]).
+
+(* Previous version without using the member type [-] :
+Definition V_cart_prod : Vset -> Vset -> Vset.
+  Definition V_cart_prod_aux (A : Type) (f : A -> Vset) (H_f : A -> Vset -> Vset) : Vset -> Vset.
+  apply Vset_rect'_nd with (fun B g _ => 
+    set (fun (x : A * B) => [f (fst x), g (snd x)] ) ).
+  2: exact is0trunc_vset.
+  intros B B' g g' eq_img _ _ _.
+  apply setext'; split.
+  - intros (a, b). generalize (fst eq_img b). apply minus1Trunc_map.
+    intros [b' p]. exists (a, b'). simpl.
+    exact (ap (fun x => [f a, x]) p).
+  - intros (a, b'). generalize (snd eq_img b'). apply minus1Trunc_map.
+    intros [b p]. exists (a, b). simpl.
+    exact (ap (fun x => [f a, x]) p).
+  Defined.
+refine (Vset_rect'_nd (Vset -> Vset) V_cart_prod_aux _ _).
+intros A B f g eq_img H_f H_g _.
+apply (Funext_implies_NaiveFunext fs).
+apply Vset_rect_hprop.
+2: intro; apply istrunc_paths; apply is0trunc_vset.
+intros C h _; simpl.
+apply setext'; split.
+- intros (a,c). generalize (fst eq_img a). apply minus1Trunc_map.
+  intros [b p]. exists (b, c). simpl.
+  exact (ap (fun x => [x, h c]) p).
+- intros (b,c). generalize (snd eq_img b). apply minus1Trunc_map.
+  intros [a p]. exists (a, c). simpl.
+  exact (ap (fun x => [x, h c]) p).
 Defined.
+*)
+
+Notation " a × b " := (V_cart_prod a b)
+  (at level 25).
+
+(* f is a function with domain a and codomain b *)
+Definition V_is_func (a : Vset) (b : Vset) (f : Vset) := f ⊆ a × b
+ * (forall x, x ∈ a -> hexists (fun y => [x,y] ∈ f))
+ * (forall x y y', [x,y] ∈ f * [x,y'] ∈ f -> y = y').
+
+(* The set of functions from a to b *)
+Definition V_func (a : Vset) (b : Vset) : Vset
+:= @set ([a] -> [b]) (fun f => set (fun x => [memFunc x, memFunc (f x)] )).
+
+(* The ordinal successor x ∪ {x} *)
+Definition V_succ : Vset -> Vset.
+Proof.
+  apply Vset_rect'_nd with (fun A f _ =>
+    set (fun (x : A + Unit) => match x with inl a => f a
+                                          | inr tt => set f end)).
+  2: exact is0trunc_vset.
+  intros A B f g eq_img _ _ _. apply setext'. split.
+    - intro. destruct a.
+      + generalize (fst eq_img a). apply minus1Trunc_map.
+        intros [b p]. exists (inl b); exact p.
+      + apply min1; exists (inr tt). destruct u. apply setext'; auto.
+    - intro. destruct b.
+      + generalize (snd eq_img b). apply minus1Trunc_map. 
+        intros [a p]. exists (inl a); exact p.
+      + apply min1; exists (inr tt). destruct u. apply setext'; auto.
+Defined.
+
+(* The set of finite ordinals *) 
+Definition V_omega : Vset
+:= set (fix I n := match n with 0   => V_empty
+                              | S n => V_succ (I n) end).
+
+
+(* ** Axioms of set theory (theorem 10.5.8) ** *)
+
+Lemma not_mem_Vempty : forall x, ~ (x ∈ V_empty).
+Proof.
+  intros x Hx. generalize Hx; apply minus1Trunc_ind.
+  intros [ff _]. exact ff.
+Qed.
+
+Lemma extensionality : forall x y : Vset, (x ⊆ y * y ⊆ x) <-> x = y.
+Proof.
+  refine (Vset_rect_hprop _ _ _). intros A f _.
+  refine (Vset_rect_hprop _ _ _). intros B g _.
+  split.
+  - intros [H1 H2]. apply setext'. split.
+    intro. apply (minus1Trunc_rect_nondep (A := {b : B & g b = f a})).
+      intros [b p]. apply min1. exists b. exact p^.
+      apply allpath_hprop.
+      apply (H1 (f a)). apply min1. exists a; reflexivity.
+    intro. apply (H2 (g b)). apply min1. exists b; reflexivity.
+  - intro p; split.
+    intros z Hz. apply (transport (fun x => z ∈ x) p Hz).
+    intros z Hz. apply (transport (fun x => z ∈ x) p^ Hz).
+Qed.
+
+Lemma pairing : forall u v, hexists (fun w => forall x, x ∈ w <-> hor (x = u) (x = v)).
+Proof.
+  intros u v. apply min1. exists (V_pair u v).
+  intro; split.
+  - apply minus1Trunc_map. intros [b p]. destruct b.
+    left; exact p^. right; exact p^.
+  - apply minus1Trunc_map. intros [p | p].
+    exists true; exact p^. exists false; exact p^.
+Qed.
+
+Lemma infinity : (V_empty ∈ V_omega) * (forall x, x ∈ V_omega -> V_succ x ∈ V_omega).
+Proof.
+  split. apply min1; exists 0; auto.
+  intro. apply minus1Trunc_map.
+  intros [n p]. exists (S n). rewrite p; auto.
+Qed.
+
+(* Union *)
+
+Lemma function : forall u v, hexists (fun w => forall x, x ∈ w <-> V_is_func u v x).
+Proof.
+  intros u v. apply min1; exists (V_func u v).
+  intro phi; split.
+  - intro H. split. split.
+    + intros z Hz. simpl. unfold V_func in H; simpl in H.
+      (* generalize H. => Weird error *)
+Admitted.
+
+Lemma mem_induction (C : Vset -> hProp)
+: (forall v, (forall x, x ∈ v -> C x) -> C v) -> forall v, C v.
+Proof.
+  intro H.
+  apply Vset_rect_hprop.
+  2: intro; apply isp.
+  intros A f H_f. apply H. intros x Hx.
+  generalize Hx; apply minus1Trunc_ind.
+  intros [a p]. exact (transport C p (H_f a)).
+Defined.
+
+Lemma replacement : forall (r : Vset -> Vset) (x : Vset),
+  hexists (fun w => forall y, y ∈ w <-> hexists (fun z => z ∈ x * (r z = y))).
+Proof.
+  intro r. apply Vset_rect_hprop.
+  2: intro; apply minus1Trunc_is_prop.
+  intros A f _. apply min1. exists (set (r ∘ f)). split.
+  - apply minus1Trunc_map.
+    intros [a p]. exists (f a). split. apply min1; exists a; auto. assumption.
+  - apply minus1Trunc_ind.
+    intros [z [h p]]. generalize h. apply minus1Trunc_map.
+    intros [a p']. exists a. path_via (r z). exact (ap r p').
+Qed.
+
+Lemma separation (C : Vset -> hProp) : forall a : Vset,
+  hexists (fun w => forall x, x ∈ w <-> x ∈ a * (C x)).
+Proof.
+  apply Vset_rect_hprop.
+  2: intro; apply minus1Trunc_is_prop.
+  intros A f _. apply min1. exists (set (fun z : {a : A & C (f a)} => f (pr1 z))). split.
+  - apply minus1Trunc_ind.
+    intros [[a h] p]. split. apply min1; exists a; assumption. exact (transport C p h).
+  - intros [H1 H2]. generalize H1. apply minus1Trunc_map.
+      intros [a p]. exists (a; transport C p^ H2). exact p.
+Qed.
+
+
 
 
 End AssumeAxioms.
