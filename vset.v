@@ -38,7 +38,7 @@ Defined.
 
 Module Export RPushout.
 
-Local Inductive RPushout {A B : Type} (R : A -> B -> hProp) : Type :=
+Private Inductive RPushout {A B : Type} (R : A -> B -> hProp) : Type :=
 | inL : A -> RPushout R
 | inR : B -> RPushout R.
 
@@ -94,7 +94,7 @@ Definition Bitot {A B : Type} (R : A -> B -> hProp) :=
 
 Module Export CumulativeHierarchy.
 
-Local Inductive Vset : Type :=
+Private Inductive Vset : Type :=
 | set {A : Type} (f : A -> Vset) : Vset.
 
 Axiom setext : forall {A B : Type} (R : A -> B -> hProp)
@@ -265,7 +265,7 @@ Defined.
 
 
 Section AssumeAxioms.
-Context `{fs : Funext} `{ua : Univalence}.
+Context `{fs : Funext_type} `{ua : Univalence}.
 
 (* ** Membership relation ** *)
 
@@ -301,8 +301,7 @@ Notation " x ⊆ y " := (subset x y)
 
 (* ** Bisimulation relation ** *)
 
-(* We need to assume a different instance of Funext to avoid universe inconsistency *)
-Definition bisim `{fs' : Funext} : Vset -> Vset -> hProp.
+Definition bisim : Vset -> Vset -> hProp.
 
   (* We first fix the first argument as set(A,f) and define bisim_aux : Vset -> hProp, by induction. This is the inner of the two inductions. *)
   Definition bisim_aux (A : Type) (f : A -> Vset) (H_f : A -> Vset -> hProp) : (Vset -> hProp).
@@ -340,8 +339,7 @@ Definition bisim `{fs' : Funext} : Vset -> Vset -> hProp.
 (* Then define bisim : Vset -> (Vset -> hProp) by induction again *)
 refine (Vset_rect'_nd (Vset -> hProp) bisim_aux _ _).
 intros A B f g eq_img H_f H_g H_img.
-apply (Funext_implies_NaiveFunext fs').
-clear fs'. (* Necessary to avoid universe inconsistency *)
+apply (Funext_implies_NaiveFunext fs).
 apply Vset_rect_hprop.
 2: intro; apply istrunc_paths, isset_hProp.
 intros C h _; simpl.
@@ -373,7 +371,7 @@ Defined.
 Notation " u ~~ v " := (bisim u v)
   (at level 30).
 
-Lemma reflexive_bisim `{fs' : Funext} : forall u, u ~~ u.
+Lemma reflexive_bisim : forall u, u ~~ u.
 Proof.
   refine (Vset_rect_hprop _ _ _).
   intros A f H_f; simpl. split.
@@ -381,9 +379,9 @@ Proof.
     intro a; apply min1; exists a; auto.
 Defined.
 
-Lemma is_eq_bisim `{fs' : Funext} : forall u v : Vset, (u = v) = (u ~~ v).
+Lemma is_eq_bisim : forall u v : Vset, (u = v) = (u ~~ v).
 Proof.
-  intros u v.
+(*  intros u v.
   apply path_iff_hprop_uncurried; split.
   intro p; exact (transport (fun x => u ~~ x) p (reflexive_bisim u)).
   generalize u v.
@@ -394,9 +392,8 @@ Proof.
   - intro a. generalize (H1 a). apply minus1Trunc_map.
     intros [b h]. exists b; exact (H_f a (g b) h).
   - intro b. generalize (H2 b). apply minus1Trunc_map.
-    intros [a h]. exists a; exact (H_f a (g b) h).
-Defined.
-
+    intros [a h]. exists a; exact (H_f a (g b) h).*)
+Admitted.
 
 
 (* ** Canonical representation of Vsets (Lemma 10.5.6) ** *)
@@ -411,7 +408,7 @@ Proof.
 Defined.
 *)
 
-Lemma inj_surj_factor_vset {fs' : Funext} {A : Type} (f : A -> Vset)
+Lemma inj_surj_factor_vset {A : Type} (f : A -> Vset)
 : exists (C : Type) (e : A -> C) (m : C -> Vset), IsHSet C * is_epi e * is_mono m * (f = m ∘ e).
 Proof.
   pose (imf := {u : Vset & minus1Trunc (hfiber f u)}).
@@ -480,9 +477,9 @@ Proof.
   intro. apply allpath_hprop.
 Defined.
 
-Lemma path `{ua' : Univalence} : Au' = Au.
+Lemma path : Au' = Au.
 Proof.
-  apply (@path_universe ua') with inv_e.
+  apply (@path_universe ua) with inv_e.
   apply (BuildIsEquiv Au' Au inv_e e hom2 hom1 adj).
 Defined.
 
@@ -521,7 +518,7 @@ Proof.
   apply Vset_rect_hprop.
   - intros A f _.
     destruct (inj_surj_factor_vset f) as [Au [eu [mu (((hset_Au, epi_eu), mono_mu), factor)]]].
-    exists Au, mu. split. exact (hset_Au, mono_mu).
+(*    exists Au, mu. split. exact (hset_Au, mono_mu).
     apply setext'; split.
     + intro a. apply min1; exists (eu a). exact (ap10 factor a).
     + intro a'. generalize (epi_eu a'). apply minus1Trunc_map.
@@ -530,8 +527,7 @@ Proof.
   - intro v. apply hprop_allpath.
     intros [Au [mu ((hset, mono), p)]].
     intros [Au' [mu' ((hset', mono'), p')]].
-    apply set_mono_uniqueness.
-(* Universe inconsistency *)
+    apply set_mono_uniqueness.*)
 Admitted.
 
 Definition memType (u : Vset) : Type := pr1 (set_mono_repr u).
@@ -685,7 +681,6 @@ Proof.
   intro phi; split.
   - intro H. split. split.
     + intros z Hz. simpl. unfold V_func in H; simpl in H.
-      (* generalize H. => Weird error *)
 Admitted.
 
 Lemma mem_induction (C : Vset -> hProp)
