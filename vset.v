@@ -20,9 +20,9 @@ Notation " g ∘ f " := (compose g f)
 
 Definition hor (P:Type) (Q:Type):Type:= minus1Trunc (P + Q).
 
-Lemma untrunc {P : Type} : (minus1Trunc P) -> (IsHProp P) -> P.
+Lemma untrunc {P : Type} : (IsHProp P) -> (minus1Trunc P) -> P.
 Proof.
-  intros. strip_truncations. assumption.
+  intro. apply minus1Trunc_ind. exact idmap.
 Defined. 
 
 Lemma mono_cancel {A B : Type} (m : A -> B) : is_mono m -> (forall a a', m a = m a' -> a = a').
@@ -263,7 +263,6 @@ Proof.
 Defined.
 
 
-
 Section AssumeAxioms.
 Context `{fs : Funext_type} `{ua : Univalence}.
 
@@ -297,6 +296,22 @@ Definition subset (x : Vset) (y : Vset) : hProp
 
 Notation " x ⊆ y " := (subset x y)
   (at level 30).
+
+
+(* ** A useful lemma ** *)
+
+Lemma path_vset_eqimg {A B} {f : A -> Vset} {g : B -> Vset} : set f = set g -> Equal_img f g.
+Proof.
+  intro p. split.
+  - intro a.
+    assert (H : f a ∈ set f). apply min1; exists a; reflexivity.
+    generalize (transport (fun x => f a ∈ x) p H). apply minus1Trunc_map.
+    intros [b p']. exists b; exact p'^.
+  - intro b.
+    assert (H : g b ∈ set g). apply min1; exists b; reflexivity.
+    generalize (transport (fun x => g b ∈ x) p^ H). apply minus1Trunc_map.
+    intros [a p']. exists a; exact p'.
+Defined.
 
 
 (* ** Bisimulation relation ** *)
@@ -381,8 +396,8 @@ Defined.
 
 Lemma is_eq_bisim : forall u v : Vset, (u = v) = (u ~~ v).
 Proof.
-(*  intros u v.
-  apply path_iff_hprop_uncurried; split.
+  intros u v.
+(*  apply path_iff_hprop_uncurried; split.
   intro p; exact (transport (fun x => u ~~ x) p (reflexive_bisim u)).
   generalize u v.
   refine (Vset_rect_hprop _ _ _); intros A f H_f.
@@ -408,17 +423,19 @@ Proof.
 Defined.
 *)
 
+Definition hfiber_bisim {A : Type} (f : A -> Vset) (y : Vset) := { x : A & f x ~~ y }.
+
 Lemma inj_surj_factor_vset {A : Type} (f : A -> Vset)
 : exists (C : Type) (e : A -> C) (m : C -> Vset), IsHSet C * is_epi e * is_mono m * (f = m ∘ e).
 Proof.
-  pose (imf := {u : Vset & minus1Trunc (hfiber f u)}).
+  pose (imf := {u : Vset & minus1Trunc (hfiber_bisim f u)}).
   exists imf.
-  pose (e := fun a => (f a; min1 (a; transport (fun X : Type => X) (is_eq_bisim (f a) (f a))^ (reflexive_bisim (f a)))) : imf).
+  pose (e := fun a => (f a; min1 (a; (reflexive_bisim (f a)))) : imf).
   exists e.
   exists pr1.
   split. split. split.
   - intros [u Hu] [v Hv]. apply (trunc_equiv' (A := u = v)).
-    equiv_via {p : u = v & transport (fun x => minus1Trunc (hfiber f x)) p Hu = Hv}.
+    equiv_via {p : u = v & transport (fun x => minus1Trunc (hfiber_bisim f x)) p Hu = Hv}.
       apply equiv_inverse. refine (BuildEquiv _ _ pr1 _).
       refine (BuildEquiv _ _ (path_sigma_uncurried _ (u; Hu) (v; Hv)) _).
     apply istrunc_paths. apply is0trunc_vset.
@@ -426,7 +443,7 @@ Proof.
     generalize H; apply minus1Trunc_map_dep; intros [a p].
     exists a. unfold e; simpl.
     apply path_sigma_uncurried; simpl.
-    exists p. apply allpath_hprop.
+    exists (transport (fun X : Type => X) (is_eq_bisim (f a) u)^ p). apply allpath_hprop.
   - unfold is_mono. intro u.
     apply hprop_allpath. intros [[v Hv] p] [[v' Hv'] p']. simpl in *.
     apply path_sigma_uncurried; simpl.
@@ -447,8 +464,8 @@ Lemma eq_img_untrunc : (forall a : Au, {a' : Au' & mu' a' = mu a})
                      * (forall a' : Au', {a : Au & mu a = mu' a'}).
 Proof.
   split.
-  intro a. exact (untrunc (transport (fun x => mu a ∈ x) (p^ @ p') (min1 (a; 1))) (mono' (mu a))).
-  intro a'. exact (untrunc (transport (fun x => mu' a' ∈ x) (p'^ @ p) (min1 (a'; 1))) (mono (mu' a'))).
+  intro a. exact (untrunc (mono' (mu a)) (transport (fun x => mu a ∈ x) (p^ @ p') (min1 (a; 1)))).
+  intro a'. exact (untrunc (mono (mu' a')) (transport (fun x => mu' a' ∈ x) (p'^ @ p) (min1 (a'; 1)))).
 Defined.
 
 Let e : Au -> Au' := fun a => pr1 (fst eq_img_untrunc a).
@@ -537,9 +554,9 @@ Notation " [ u ] " := (memType u)
 
 Definition memFunc {u : Vset} : [u] -> Vset := pr1 (pr2 (set_mono_repr u)) : [u] -> Vset.
 
-Definition is_hset_memType (u : Vset) : IsHSet ([u]) := fst (fst (pr2 (pr2 (set_mono_repr u)))).
+Definition is_hset_memType {u : Vset} : IsHSet ([u]) := fst (fst (pr2 (pr2 (set_mono_repr u)))).
 
-Definition is_mono_memFunc (u : Vset) : is_mono memFunc := snd (fst (pr2 (pr2 (set_mono_repr u)))).
+Definition is_mono_memFunc {u : Vset} : is_mono memFunc := snd (fst (pr2 (pr2 (set_mono_repr u)))).
 
 Definition is_valid_presentation (u : Vset) : u = set memFunc := snd (pr2 (pr2 (set_mono_repr u))).
 
@@ -555,11 +572,28 @@ Definition V_singleton (u : Vset) := set (Unit_rect u).
 (* The pair {u,v} *)
 Definition V_pair (u : Vset) (v : Vset) := set (fun b : Bool => if b then u else v).
 
+Lemma path_pair {u v u' v' : Vset} : (u = u') * (v = v') -> V_pair u v = V_pair u' v'.
+Proof.
+  intros (H1, H2). apply setext'. split.
+  + apply Bool_rect. apply min1; exists true. assumption.
+    apply min1; exists false; assumption.
+  + apply Bool_rect. apply min1; exists true; assumption.
+    apply min1; exists false; assumption.
+Defined.
+
 (* The ordered pair (u,v) *)
 Definition V_pair_ord (u : Vset) (v : Vset) := V_pair u (V_pair u v).
 
 Notation " [ u , v ] " := (V_pair_ord u v)
   (at level 20).
+
+Lemma path_pair_ord {a b a' b' : Vset} : [a, b] = [a', b'] <-> (a = a') * (b = b').
+Proof.
+split.
+- intro H. admit. (* TODO *)
+- intros (H1, H2). apply path_pair. split. assumption.
+  apply path_pair. split; assumption; assumption.
+Defined.
 
 (* The cartesian product a × b *)
 Definition V_cart_prod (a : Vset) (b : Vset) : Vset
@@ -673,14 +707,29 @@ Proof.
   intros [n p]. exists (S n). rewrite p; auto.
 Qed.
 
-(* Union *)
+(* TODO : Union *)
 
 Lemma function : forall u v, hexists (fun w => forall x, x ∈ w <-> V_is_func u v x).
 Proof.
   intros u v. apply min1; exists (V_func u v).
   intro phi; split.
   - intro H. split. split.
-    + intros z Hz. simpl. unfold V_func in H; simpl in H.
+    + intros z Hz. simpl in *. generalize H. apply minus1Trunc_ind.
+      intros [h p_phi]. generalize (transport (fun x => z ∈ x) p_phi^ Hz). apply minus1Trunc_map.
+      intros [a p]. exists (a, h a). assumption.
+    + intros x Hx. generalize (transport (fun y => x ∈ y) (is_valid_presentation u) Hx).
+      apply minus1Trunc_ind. intros [a p]. generalize H; apply minus1Trunc_map.
+      intros [h p_phi]. exists (memFunc (h a)). apply (transport (fun y => [x, memFunc (h a)] ∈ y) p_phi).
+      apply min1; exists a. rewrite p; reflexivity.
+    + intros x y y' (Hy, Hy'). generalize H; apply minus1Trunc_ind. intros [h p_phi].
+      generalize (transport (fun z => [x, y] ∈ z) p_phi^ Hy). apply minus1Trunc_ind. intros [a p].
+      generalize (transport (fun z => [x, y'] ∈ z) p_phi^ Hy'). apply minus1Trunc_ind. intros [a' p'].
+      destruct (fst path_pair_ord p) as (px, py). destruct (fst path_pair_ord p') as (px', py').
+      path_via (memFunc (h a)). path_via (memFunc (h a')).
+      refine (ap memFunc _). refine (ap h _). apply (mono_cancel memFunc is_mono_memFunc a a' (px @ px'^)).
+  - generalize phi. refine (Vset_rect_hprop _ _ _). intros A f _.
+    intros ((H1, H2), H3). simpl.
+    (* TODO *)
 Admitted.
 
 Lemma mem_induction (C : Vset -> hProp)
