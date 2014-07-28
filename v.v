@@ -316,7 +316,7 @@ Defined.
 (* ** Bisimulation relation ** *)
 
 Definition bisimulation : V -> V -> hProp.
-
+Proof.
   (* We first fix the first argument as set(A,f) and define bisim_aux : V -> hProp, by induction. This is the inner of the two inductions. *)
   Definition bisim_aux (A : Type) (f : A -> V) (H_f : A -> V -> hProp) : (V -> hProp).
   apply V_rect'_nd with
@@ -411,16 +411,6 @@ Admitted.
 
 
 (* ** Canonical presentation of V-sets (Lemma 10.5.6) ** *)
-
-(* Not useful anymore ?
-Lemma set_0trunc (A : Type) (f : A -> V) : set f = set (Truncation_rect_nondep f).
-Proof.
-  apply setext'; split.
-  intro a; apply min1; exists (truncation_incl a). simpl. reflexivity.
-  apply Truncation_rect. intro; apply trunc_succ.
-  intro a; apply min1; exists a. simpl. reflexivity.
-Defined.
-*)
 
 Definition hfiber_bisim {A : Type} (f : A -> V) (y : V) := { x : A & f x ~~ y }.
 
@@ -634,7 +624,7 @@ Notation " a × b " := (V_cart_prod a b)
 
 (* f is a function with domain a and codomain b *)
 Definition V_is_func (a : V) (b : V) (f : V) := f ⊆ a × b
- * (forall x, x ∈ a -> hexists (fun y => [x,y] ∈ f))
+ * (forall x, x ∈ a -> hexists (fun y => y ∈ b * [x,y] ∈ f))
  * (forall x y y', [x,y] ∈ f * [x,y'] ∈ f -> y = y').
 
 (* The set of functions from a to b *)
@@ -711,14 +701,18 @@ Qed.
 Lemma function : forall u v, hexists (fun w => forall x, x ∈ w <-> V_is_func u v x).
 Proof.
   intros u v. apply min1; exists (V_func u v).
+  assert (memb_u : u = set (@FuncOfMembers u)) by exact (is_valid_presentation u).
+  assert (memb_v : v = set (@FuncOfMembers v)) by exact (is_valid_presentation v).
   intro phi; split.
   - intro H. split. split.
     + intros z Hz. simpl in *. generalize H. apply minus1Trunc_ind.
       intros [h p_phi]. generalize (transport (fun x => z ∈ x) p_phi^ Hz). apply minus1Trunc_map.
       intros [a p]. exists (a, h a). assumption.
-    + intros x Hx. generalize (transport (fun y => x ∈ y) (is_valid_presentation u) Hx).
+    + intros x Hx. generalize (transport (fun y => x ∈ y) memb_u Hx).
       apply minus1Trunc_ind. intros [a p]. generalize H; apply minus1Trunc_map.
-      intros [h p_phi]. exists (FuncOfMembers (h a)). apply (transport (fun y => [x, FuncOfMembers (h a)] ∈ y) p_phi).
+      intros [h p_phi]. exists (FuncOfMembers (h a)). split.
+      exact (transport (fun z => FuncOfMembers (h a) ∈ z) memb_v^ (min1 (h a; 1))).
+      apply (transport (fun y => [x, FuncOfMembers (h a)] ∈ y) p_phi).
       apply min1; exists a. rewrite p; reflexivity.
     + intros x y y' (Hy, Hy'). generalize H; apply minus1Trunc_ind. intros [h p_phi].
       generalize (transport (fun z => [x, y] ∈ z) p_phi^ Hy). apply minus1Trunc_ind. intros [a p].
@@ -727,9 +721,21 @@ Proof.
       path_via (FuncOfMembers (h a)). path_via (FuncOfMembers (h a')).
       refine (ap FuncOfMembers _). refine (ap h _).
       apply (mono_cancel FuncOfMembers is_mono_FuncOfMembers a a' (px @ px'^)).
-  - generalize phi. refine (V_rect_hprop _ _ _). intros A f _.
+  - (* generalize phi. refine (V_rect_hprop _ _ _). intros A f _. *)
     intros ((H1, H2), H3). simpl.
-    (* TODO *)
+    refine (let h := _ : [u] -> [v] in _).
+    + intro a.
+      pose (x := FuncOfMembers a).
+      refine (let H := untrunc _ (H2 x (transport (fun z => x ∈ z) memb_u^ (min1 (a; 1)))) in _).
+        apply hprop_allpath. intros [y (H1_y, H2_y)] [y' (H1_y', H2_y')].
+        apply path_sigma_uncurried; simpl.
+        exists (H3 x y y' (H2_y, H2_y')).
+        apply allpath_hprop.
+      destruct H as [y (H1_y, H2_y)].
+      destruct (untrunc (is_mono_FuncOfMembers y) (transport (fun z => y ∈ z) memb_v H1_y)) as [b Hb].
+      exact b.
+    + apply min1; exists h.
+      (* TODO *)
 Admitted.
 
 Lemma mem_induction (C : V -> hProp)
