@@ -721,11 +721,9 @@ Proof.
       path_via (FuncOfMembers (h a)). path_via (FuncOfMembers (h a')).
       refine (ap FuncOfMembers _). refine (ap h _).
       apply (mono_cancel FuncOfMembers is_mono_FuncOfMembers a a' (px @ px'^)).
-  - (* generalize phi. refine (V_rect_hprop _ _ _). intros A f _. *)
-    intros ((H1, H2), H3). simpl.
-    refine (let h := _ : [u] -> [v] in _).
-    + intro a.
-      pose (x := FuncOfMembers a).
+  - intros ((H1, H2), H3). simpl.
+    refine (let h (a : [u]) := _ : {b : [v] & [FuncOfMembers a, FuncOfMembers b] ∈ phi} in _).
+    + pose (x := FuncOfMembers a).
       refine (let H := untrunc _ (H2 x (transport (fun z => x ∈ z) memb_u^ (min1 (a; 1)))) in _).
         apply hprop_allpath. intros [y (H1_y, H2_y)] [y' (H1_y', H2_y')].
         apply path_sigma_uncurried; simpl.
@@ -733,10 +731,18 @@ Proof.
         apply allpath_hprop.
       destruct H as [y (H1_y, H2_y)].
       destruct (untrunc (is_mono_FuncOfMembers y) (transport (fun z => y ∈ z) memb_v H1_y)) as [b Hb].
-      exact b.
-    + apply min1; exists h.
-      (* TODO *)
-Admitted.
+      exists b. exact (transport (fun z => [x, z] ∈ phi) Hb^ H2_y).
+    + apply min1; exists (fun a => pr1 (h a)). apply extensionality. split.
+      intros z Hz. generalize Hz; apply minus1Trunc_ind. intros [a Ha].
+        exact (transport (fun w => w ∈ phi) Ha (pr2 (h a))).
+      intros z Hz. simpl.
+      generalize (H1 z Hz). apply minus1Trunc_map. intros [(a,b) p]. simpl in p.
+      exists a. rewrite <- p.
+      apply path_pair_ord. split. reflexivity.
+      apply H3 with (FuncOfMembers a). split.
+      exact (pr2 (h a)).
+      exact (transport (fun w => w ∈ phi) p^ Hz).
+Qed.
 
 Lemma mem_induction (C : V -> hProp)
 : (forall v, (forall x, x ∈ v -> C x) -> C v) -> forall v, C v.
@@ -773,8 +779,5 @@ Proof.
   - intros [H1 H2]. generalize H1. apply minus1Trunc_map.
       intros [a p]. exists (a; transport C p^ H2). exact p.
 Qed.
-
-
-
 
 End AssumeAxioms.
