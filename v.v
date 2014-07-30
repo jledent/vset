@@ -94,8 +94,8 @@ Definition Bitot {A B : Type} (R : A -> B -> hProp) :=
 
 Module Export CumulativeHierarchy.
 
-Private Inductive V : Type :=
-| set {A : Type} (f : A -> V) : V.
+Private Inductive V : Type@{U'} :=
+| set {A : Type@{U}} (f : A -> V) : V.
 
 Axiom setext : forall {A B : Type} (R : A -> B -> hProp)
   (bitot_R : Bitot R) (h : RPushout R -> V),
@@ -315,7 +315,7 @@ Defined.
 
 (* ** Bisimulation relation ** *)
 
-Definition bisimulation : V -> V -> hProp.
+Definition bisimulation : V@{U' U} -> V@{U' U} -> hProp@{U'}.
 Proof.
   (* We first fix the first argument as set(A,f) and define bisim_aux : V -> hProp, by induction. This is the inner of the two inductions. *)
   Definition bisim_aux (A : Type) (f : A -> V) (H_f : A -> V -> hProp) : (V -> hProp).
@@ -392,10 +392,10 @@ Proof.
     intro a; apply min1; exists a; auto.
 Defined.
 
-Lemma BisimEqualsId : forall u v : V, (u = v) = (u ~~ v).
+Lemma BisimEqualsId : forall u v : V@{U' U}, (u = v) = (u ~~ v).
 Proof.
   intros u v.
-(*  apply path_iff_hprop_uncurried; split.
+  apply path_iff_hprop_uncurried; split.
   intro p; exact (transport (fun x => u ~~ x) p (reflexive_bisim u)).
   generalize u v.
   refine (V_rect_hprop _ _ _); intros A f H_f.
@@ -405,16 +405,16 @@ Proof.
   - intro a. generalize (H1 a). apply minus1Trunc_map.
     intros [b h]. exists b; exact (H_f a (g b) h).
   - intro b. generalize (H2 b). apply minus1Trunc_map.
-    intros [a h]. exists a; exact (H_f a (g b) h).*)
-Admitted.
+    intros [a h]. exists a; exact (H_f a (g b) h).
+Defined.
 
 
 (* ** Canonical presentation of V-sets (Lemma 10.5.6) ** *)
 
 Definition hfiber_bisim {A : Type} (f : A -> V) (y : V) := { x : A & f x ~~ y }.
 
-Lemma inj_surj_factor_V {A : Type} (f : A -> V)
-: exists (C : Type) (e : A -> C) (m : C -> V), IsHSet C * is_epi e * is_mono m * (f = m ∘ e).
+Lemma inj_surj_factor_V {A : Type@{U}} (f : A -> V)
+: exists (C : Type@{U}) (e : A -> C) (m : C -> V), IsHSet C * is_epi e * is_mono m * (f = m ∘ e).
 Proof.
   pose (imf := {u : V & minus1Trunc (hfiber_bisim f u)}).
   exists imf.
@@ -504,21 +504,20 @@ Proof.
   exists path^.
   path_via (path^ # mu; transportD (fun A => A -> V) (fun A m => IsHSet A * is_mono m * (u = set m)) path^ mu (h, mono, p)).
   apply (@transport_sigma Type (fun A => A -> V) (fun A m => IsHSet A * is_mono m * (u = set m)) Au Au' path^ (mu; (h, mono, p))).
-  apply path_sigma_uncurried; simpl.
-  exists mu_eq_mu'.
-  apply allpath_hprop.
+  apply path_sigma_hprop; simpl.
+  exact mu_eq_mu'.
 Defined.
 
 End MonicSetPresent_Unique.
 
 (* This lemma actually says a little more than 10.5.6, i.e., that Au is a hSet *)
-Lemma MonicSetPresent : forall u, exists (Au : Type) (m : Au -> V),
+Lemma MonicSetPresent : forall u : V@{U' U}, exists (Au : Type@{U}) (m : Au -> V@{U' U}),
   (IsHSet Au) * (is_mono m) * (u = set m).
 Proof.
   apply V_rect_hprop.
   - intros A f _.
     destruct (inj_surj_factor_V f) as [Au [eu [mu (((hset_Au, epi_eu), mono_mu), factor)]]].
-(*    exists Au, mu. split. exact (hset_Au, mono_mu).
+    exists Au, mu. split. exact (hset_Au, mono_mu).
     apply setext'; split.
     + intro a. apply min1; exists (eu a). exact (ap10 factor a).
     + intro a'. generalize (epi_eu a'). apply minus1Trunc_map.
