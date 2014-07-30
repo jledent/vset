@@ -263,8 +263,8 @@ Proof.
 Defined.
 
 
-Section AssumeAxioms.
-Context `{fs : Funext_type} `{ua : Univalence}.
+Section AssumingUA.
+Context `{ua : Univalence}.
 
 (* ** Membership relation ** *)
 
@@ -353,9 +353,8 @@ Proof.
 (* Then define bisim : V -> (V -> hProp) by induction again *)
 refine (V_rect'_nd (V -> hProp) bisim_aux _ _).
 intros A B f g eq_img H_f H_g H_img.
-apply (Funext_implies_NaiveFunext fs).
-apply V_rect_hprop.
-2: intro; apply istrunc_paths, isset_hProp.
+apply path_forall.
+refine (V_rect_hprop _ _ _).
 intros C h _; simpl.
 apply path_iff_hProp_uncurried. split.
 - intros [H1 H2]; split.
@@ -439,7 +438,7 @@ Proof.
     assert ((v; Hv) = (v'; Hv') :> imf).
       apply path_sigma_uncurried; simpl. exists (p @ p'^). apply allpath_hprop.
     exists X. apply allpath_hprop.
-  - apply (Funext_implies_NaiveFunext fs). intro a. reflexivity.
+  - apply path_forall. intro a. reflexivity.
 Defined.
 
 
@@ -478,20 +477,15 @@ Proof.
   exact (pr2 (fst eq_img_untrunc a)).
 Defined.
 
-Definition adj : forall a' : Au', hom2 (inv_e a') = ap inv_e (hom1 a').
-Proof.
-  intro. apply allpath_hprop.
-Defined.
-
 Lemma path : Au' = Au.
 Proof.
-  apply (@path_universe ua) with inv_e.
-  apply (BuildIsEquiv Au' Au inv_e e hom2 hom1 adj).
+  apply path_universe_uncurried.
+  apply (equiv_adjointify inv_e e hom2 hom1).
 Defined.
 
 Lemma mu_eq_mu' : transport (fun A : Type => A -> V) path^ mu = mu'.
 Proof.
-  apply (Funext_implies_NaiveFunext fs). intro a'.
+  apply path_forall. intro a'.
   path_via (transport (fun X => V) path^ (mu (transport (fun X : Type => X) path^^ a'))).
   apply (@transport_arrow Type (fun X : Type => X) (fun X => V) Au Au' path^ mu a').
   path_via (mu (transport idmap path^^ a')).
@@ -722,8 +716,8 @@ Proof.
       refine (ap FuncOfMembers _). refine (ap h _).
       apply (mono_cancel FuncOfMembers is_mono_FuncOfMembers a a' (px @ px'^)).
   - intros ((H1, H2), H3). simpl.
-    refine (let h (a : [u]) := _ : {b : [v] & [FuncOfMembers a, FuncOfMembers b] ∈ phi} in _).
-    + pose (x := FuncOfMembers a).
+    assert (h : forall a : [u], {b : [v] & [FuncOfMembers a, FuncOfMembers b] ∈ phi}).
+    + intro a. pose (x := FuncOfMembers a).
       refine (let H := untrunc _ (H2 x (transport (fun z => x ∈ z) memb_u^ (min1 (a; 1)))) in _).
         apply hprop_allpath. intros [y (H1_y, H2_y)] [y' (H1_y', H2_y')].
         apply path_sigma_uncurried; simpl.
@@ -737,7 +731,7 @@ Proof.
         exact (transport (fun w => w ∈ phi) Ha (pr2 (h a))).
       intros z Hz. simpl.
       generalize (H1 z Hz). apply minus1Trunc_map. intros [(a,b) p]. simpl in p.
-      exists a. rewrite <- p.
+      exists a. path_via ([FuncOfMembers a, FuncOfMembers b]).
       apply path_pair_ord. split. reflexivity.
       apply H3 with (FuncOfMembers a). split.
       exact (pr2 (h a)).
@@ -780,4 +774,4 @@ Proof.
       intros [a p]. exists (a; transport C p^ H2). exact p.
 Qed.
 
-End AssumeAxioms.
+End AssumingUA.
