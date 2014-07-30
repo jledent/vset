@@ -94,6 +94,8 @@ Definition Bitot {A B : Type} (R : A -> B -> hProp) :=
 
 Module Export CumulativeHierarchy.
 
+Universe U U'.
+
 Private Inductive V : Type@{U'} :=
 | set {A : Type@{U}} (f : A -> V) : V.
 
@@ -315,7 +317,7 @@ Defined.
 
 (* ** Bisimulation relation ** *)
 
-Definition bisimulation : V@{U' U} -> V@{U' U} -> hProp@{U'}.
+Definition bisimulation : V -> V -> hProp@{U'}.
 Proof.
   (* We first fix the first argument as set(A,f) and define bisim_aux : V -> hProp, by induction. This is the inner of the two inductions. *)
   Definition bisim_aux (A : Type) (f : A -> V) (H_f : A -> V -> hProp) : (V -> hProp).
@@ -392,7 +394,7 @@ Proof.
     intro a; apply min1; exists a; auto.
 Defined.
 
-Lemma BisimEqualsId : forall u v : V@{U' U}, (u = v) = (u ~~ v).
+Lemma BisimEqualsId : forall u v : V, (u = v) = (u ~~ v).
 Proof.
   intros u v.
   apply path_iff_hprop_uncurried; split.
@@ -408,13 +410,12 @@ Proof.
     intros [a h]. exists a; exact (H_f a (g b) h).
 Defined.
 
-
 (* ** Canonical presentation of V-sets (Lemma 10.5.6) ** *)
 
 Definition hfiber_bisim {A : Type} (f : A -> V) (y : V) := { x : A & f x ~~ y }.
 
-Lemma inj_surj_factor_V {A : Type@{U}} (f : A -> V)
-: exists (C : Type@{U}) (e : A -> C) (m : C -> V), IsHSet C * is_epi e * is_mono m * (f = m ∘ e).
+Lemma inj_surj_factor_V {A : Type} (f : A -> V)
+: exists (C : Type) (e : A -> C) (m : C -> V), IsHSet C * is_epi e * is_mono m * (f = m ∘ e).
 Proof.
   pose (imf := {u : V & minus1Trunc (hfiber_bisim f u)}).
   exists imf.
@@ -511,12 +512,13 @@ Defined.
 End MonicSetPresent_Unique.
 
 (* This lemma actually says a little more than 10.5.6, i.e., that Au is a hSet *)
-Lemma MonicSetPresent : forall u : V@{U' U}, exists (Au : Type@{U}) (m : Au -> V@{U' U}),
+Lemma MonicSetPresent : forall u : V, exists (Au : Type) (m : Au -> V),
   (IsHSet Au) * (is_mono m) * (u = set m).
 Proof.
   apply V_rect_hprop.
   - intros A f _.
     destruct (inj_surj_factor_V f) as [Au [eu [mu (((hset_Au, epi_eu), mono_mu), factor)]]].
+(*     Au doesn't live in U 
     exists Au, mu. split. exact (hset_Au, mono_mu).
     apply setext'; split.
     + intro a. apply min1; exists (eu a). exact (ap10 factor a).
