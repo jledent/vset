@@ -34,13 +34,6 @@ Proof.
   assumption.
 Defined.
 
-Lemma hprop_map {A : Type} {B : A -> Type} {H : forall a, IsHProp (B a)} : IsHProp (forall a, B a).
-Proof.
-  apply hprop_allpath.
-  intros f h. apply path_forall. intro a.
-  apply allpath_hprop.
-Defined.
-
 (* ** Pushout with respect to a relation ** *)
 
 Module Export RPushout.
@@ -420,8 +413,8 @@ Defined.
 
 (* ** Canonical presentation of V-sets (Lemma 10.5.6) ** *)
 
-Definition ker {A B} `{IsHSet B} (f : A -> B) (x y : A) := (f x = f y).
-Lemma setrel_ker {A} (f : A -> V) : setrel (ker f).
+Definition ker_bisim {A} (f : A -> V) (x y : A) := (f x ~~ f y).
+Lemma setrel_ker_bisim {A} (f : A -> V) : setrel (ker_bisim f).
 Proof.
   intros x y. apply _.
 Defined.
@@ -429,14 +422,15 @@ Defined.
 Lemma inj_surj_factor_V {A : Type} (f : A -> V)
 : exists (C : Type) (e : A -> C) (m : C -> V), IsHSet C * is_epi e * is_mono m * (f = m ∘ e).
 Proof.
-  pose (C := quotient (setrel_ker f)).
+  pose (C := quotient (setrel_ker_bisim f)).
   assert (IsHSet C) by (unfold C; apply _).
   exists C.
-  pose (e := class_of (setrel_ker f)).
+  pose (e := class_of (setrel_ker_bisim f)).
   exists e.
   refine (let m := _ : C -> V in _).
     apply quotient_rect with f.
     intros x y H. path_via (f x). apply transport_const.
+    exact (transport (fun X => X) (BisimEqualsId (f x) (f y))^ H).
   exists m.
   split. split. split.
   - assumption.
@@ -449,6 +443,7 @@ Proof.
       refine (quotient_rect _ _ _). intro a.
       refine (quotient_rect _ _ _). intros a' p p'.
       apply related_classes_eq.
+        refine (transport (fun X => X) (BisimEqualsId _ _) _).
         path_via (m (e a)). path_via (m (e a')).
         exact (p @ p'^).
       intros; apply allpath_hprop.
@@ -693,11 +688,9 @@ Qed.
 Lemma pairing : forall u v, hexists (fun w => forall x, x ∈ w <-> hor (x = u) (x = v)).
 Proof.
   intros u v. apply min1. exists (V_pair u v).
-  intro; split.
-  - apply minus1Trunc_map. intros [b p]. destruct b.
-    left; exact p^. right; exact p^.
-  - apply minus1Trunc_map. intros [p | p].
-    exists true; exact p^. exists false; exact p^.
+  intro; split; apply minus1Trunc_map.
+  - intros [[|] p]; [left|right]; exact p^.
+  - intros [p | p]; [exists true | exists false]; exact p^.
 Qed.
 
 Lemma infinity : (V_empty ∈ V_omega) * (forall x, x ∈ V_omega -> V_succ x ∈ V_omega).
