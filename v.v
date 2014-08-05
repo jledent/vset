@@ -34,6 +34,13 @@ Proof.
   assumption.
 Defined.
 
+Lemma hprop_map {A : Type} {B : A -> Type} {H : forall a, IsHProp (B a)} : IsHProp (forall a, B a).
+Proof.
+  apply hprop_allpath.
+  intros f h. apply path_forall. intro a.
+  apply allpath_hprop.
+Defined.
+
 (* ** Pushout with respect to a relation ** *)
 
 Module Export RPushout.
@@ -402,7 +409,7 @@ Proof.
   generalize u v.
   refine (V_rect_hprop _ _ _); intros A f H_f.
   refine (V_rect_hprop _ _ _); intros B g _.
-  intro H; simpl in H; destruct H as [H1 H2].
+  simpl; intros [H1 H2].
   apply setext'. split.
   - intro a. generalize (H1 a). apply minus1Trunc_map.
     intros [b h]. exists b; exact (H_f a (g b) h).
@@ -413,12 +420,13 @@ Defined.
 
 (* ** Canonical presentation of V-sets (Lemma 10.5.6) ** *)
 
-Definition im {A B} (f : A -> B) := {b : B & minus1Trunc (hfiber f b)}.
-
 Definition ker {A B} `{IsHSet B} (f : A -> B) (x y : A) := (f x = f y).
+Lemma setrel_ker {A} (f : A -> V) : setrel (ker f).
+Proof.
+  intros x y. apply _.
+Defined.
 
 Definition ker_bisim {A} (f : A -> V) (x y : A) := (f x ~~ f y).
-
 Lemma setrel_ker_bisim {A} (f : A -> V) : setrel (ker_bisim f).
 Proof.
   intros x y. apply _.
@@ -427,29 +435,43 @@ Defined.
 Lemma inj_surj_factor_V {A : Type} (f : A -> V)
 : exists (C : Type) (e : A -> C) (m : C -> V), IsHSet C * is_epi e * is_mono m * (f = m ∘ e).
 Proof.
-  exists (im f).
-  pose (e := fun a => (f a; min1 (a; 1)) : im f).
+  pose (C := quotient (setrel_ker f)).
+  exists C.
+  pose (e := class_of (setrel_ker f)).
   exists e.
-  exists pr1.
+  refine (let m := _ : C -> V in _).
+    apply quotient_rect with f.
+    intros x y H. path_via (f x). apply transport_const.
+  exists m.
   split. split. split.
-  - intros [u Hu] [v Hv]. apply (trunc_equiv' (A := u = v)).
-    equiv_via {p : u = v & transport (fun x => minus1Trunc (hfiber f x)) p Hu = Hv}.
-      apply equiv_inverse. refine (BuildEquiv _ _ pr1 _).
-      refine (BuildEquiv _ _ (path_sigma_uncurried _ (u; Hu) (v; Hv)) _).
-    apply istrunc_paths. apply is0trunc_V.
-  - unfold is_epi. intros [u H].
-    generalize H; apply minus1Trunc_map_dep; intros [a p].
-    exists a. unfold e; simpl.
-    apply path_sigma_uncurried; simpl.
-    exists p. apply allpath_hprop.
+  - exact (quotient_set).
+  - unfold is_epi. refine (quotient_rect _ _ _).
+    intro a; apply min1; exists a. exact 1.
+    intros x y H. apply allpath_hprop.
   - unfold is_mono. intro u.
-    apply hprop_allpath. intros [[v Hv] p] [[v' Hv'] p']. simpl in *.
-    apply path_sigma_uncurried; simpl.
-    assert (H : (v; Hv) = (v'; Hv') :> im f).
-      apply path_sigma_uncurried; simpl. exists (p @ p'^). apply allpath_hprop.
-    exists H. apply allpath_hprop.
+    apply hprop_allpath.
+    assert (H : forall (x y : C) (p : m x = u) (p' : m y = u), x = y).
+      refine (quotient_rect _ _ _). intro a.
+      refine (quotient_rect _ _ _). intros a' p p'.
+      apply related_classes_eq.
+        path_via (m (e a)). path_via (m (e a')).
+        exact (p @ p'^).
+      (* Morally, the two following goals should just be 'intros; apply allpath_hprop.' *)
+      intros. refine (@allpath_hprop _ _ _ _).
+        refine (@hprop_map _ _ _). intros _.
+        refine (@hprop_map _ _ _). intros _.
+        apply istrunc_paths. apply quotient_set.
+      intros. refine (@allpath_hprop _ _ _ _).
+        refine (@hprop_map _ _ _). intros c.
+        refine (@hprop_map _ _ _). intros _.
+        refine (@hprop_map _ _ _). intros _.
+        apply istrunc_paths. apply quotient_set.
+    intros [x p] [y p'].
+    apply path_sigma_hprop; simpl.
+    exact (H x y p p').
   - apply path_forall. intro a. reflexivity.
 Defined.
+
 
 Section MonicSetPresent_Unique.
 (* Given u : V, we want to show that the representation u = @set Au mu, where Au is an hSet and mu is monic, is unique. *)
@@ -526,8 +548,6 @@ Proof.
   apply V_rect_hprop.
   - intros A f _.
     destruct (inj_surj_factor_V f) as [Au [eu [mu (((hset_Au, epi_eu), mono_mu), factor)]]].
-    exists (quotient (setrel_ker_bisim f)).
-(*     Au doesn't live in U 
     exists Au, mu. split. exact (hset_Au, mono_mu).
     apply setext'; split.
     + intro a. apply min1; exists (eu a). exact (ap10 factor a).
@@ -537,8 +557,8 @@ Proof.
   - intro v. apply hprop_allpath.
     intros [Au [mu ((hset, mono), p)]].
     intros [Au' [mu' ((hset', mono'), p')]].
-    apply set_mono_uniqueness.*)
-Admitted.
+    apply set_mono_uniqueness.
+Defined.
 
 Definition TypeOfMembers (u : V) : Type := pr1 (MonicSetPresent u).
 
