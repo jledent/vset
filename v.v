@@ -296,21 +296,6 @@ Notation " x ⊆ y " := (subset x y)
   (at level 30).
 
 
-(* This lemma might be useful *)
-Lemma path_V_eqimg {A B} {f : A -> V} {g : B -> V} : set f = set g -> Equal_img f g.
-Proof.
-  intro p. split.
-  - intro a.
-    assert (H : f a ∈ set f). apply min1; exists a; reflexivity.
-    generalize (transport (fun x => f a ∈ x) p H). apply minus1Trunc_map.
-    intros [b p']. exists b; exact p'^.
-  - intro b.
-    assert (H : g b ∈ set g). apply min1; exists b; reflexivity.
-    generalize (transport (fun x => g b ∈ x) p^ H). apply minus1Trunc_map.
-    intros [a p']. exists a; exact p'.
-Defined.
-
-
 (* ** Bisimulation relation ** *)
 
 Definition bisimulation : V -> V -> hProp@{U'}.
@@ -566,6 +551,19 @@ Proof.
   refine (mem_induction (fun x => hp (~ x ∈ x) _) _); simpl in *.
   intros v H. intro Hv.
   exact (H v Hv Hv).
+Defined.
+
+Lemma path_V_eqimg {A B} {f : A -> V} {g : B -> V} : set f = set g -> Equal_img f g.
+Proof.
+  intro p. split.
+  - intro a.
+    assert (H : f a ∈ set g). apply (snd extensionality p).
+      apply min1; exists a; reflexivity.
+    generalize H; apply minus1Trunc_map. intros [b p']. exists b; exact p'^.
+  - intro b.
+    assert (H : g b ∈ set f). apply (snd extensionality p^).
+      apply min1; exists b; reflexivity.
+    generalize H; apply minus1Trunc_map. intros [a p']. exists a; exact p'.
 Defined.
 
 
