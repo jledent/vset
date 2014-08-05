@@ -426,16 +426,11 @@ Proof.
   intros x y. apply _.
 Defined.
 
-Definition ker_bisim {A} (f : A -> V) (x y : A) := (f x ~~ f y).
-Lemma setrel_ker_bisim {A} (f : A -> V) : setrel (ker_bisim f).
-Proof.
-  intros x y. apply _.
-Defined.
-
 Lemma inj_surj_factor_V {A : Type} (f : A -> V)
 : exists (C : Type) (e : A -> C) (m : C -> V), IsHSet C * is_epi e * is_mono m * (f = m ∘ e).
 Proof.
   pose (C := quotient (setrel_ker f)).
+  assert (IsHSet C) by (unfold C; apply _).
   exists C.
   pose (e := class_of (setrel_ker f)).
   exists e.
@@ -444,7 +439,7 @@ Proof.
     intros x y H. path_via (f x). apply transport_const.
   exists m.
   split. split. split.
-  - exact (quotient_set).
+  - assumption.
   - unfold is_epi. refine (quotient_rect _ _ _).
     intro a; apply min1; exists a. exact 1.
     intros x y H. apply allpath_hprop.
@@ -456,16 +451,8 @@ Proof.
       apply related_classes_eq.
         path_via (m (e a)). path_via (m (e a')).
         exact (p @ p'^).
-      (* Morally, the two following goals should just be 'intros; apply allpath_hprop.' *)
-      intros. refine (@allpath_hprop _ _ _ _).
-        refine (@hprop_map _ _ _). intros _.
-        refine (@hprop_map _ _ _). intros _.
-        apply istrunc_paths. apply quotient_set.
-      intros. refine (@allpath_hprop _ _ _ _).
-        refine (@hprop_map _ _ _). intros c.
-        refine (@hprop_map _ _ _). intros _.
-        refine (@hprop_map _ _ _). intros _.
-        apply istrunc_paths. apply quotient_set.
+      intros; apply allpath_hprop.
+      intros; apply allpath_hprop.
     intros [x p] [y p'].
     apply path_sigma_hprop; simpl.
     exact (H x y p p').
