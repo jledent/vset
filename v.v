@@ -597,29 +597,53 @@ Proof.
     apply min1; exists false; assumption.
 Defined.
 
+Lemma pair_eq_singleton {u v w : V} : V_pair u v = V_singleton w <-> (u = w) * (v = w).
+Proof.
+  split.
+  + intro H. destruct (path_V_eqimg H) as (H1, H2).
+    refine (minus1Trunc_ind _ (H1 true)). intros [t p]; destruct t.
+    refine (minus1Trunc_ind _ (H1 false)). intros [t p']; destruct t.
+    split; [exact p| exact p'].
+  + intros (p1, p2). apply setext'; split.
+    intro a; apply min1; exists tt. destruct a; [exact p1 | exact p2].
+    intro t; apply min1; exists true. destruct t; exact p1.
+Defined.
+
 (* The ordered pair (u,v) *)
-Definition V_pair_ord (u : V) (v : V) := V_pair u (V_pair u v).
+Definition V_pair_ord (u : V) (v : V) := V_pair (V_singleton u) (V_pair u v).
 
 Notation " [ u , v ] " := (V_pair_ord u v)
   (at level 20).
 
-Lemma path_pair_ord {a b a' b' : V} : [a, b] = [a', b'] <-> (a = a') * (b = b').
+Lemma path_pair_ord {a b c d : V} : [a, b] = [c, d] <-> (a = c) * (b = d).
 Proof.
-split.
-- intro H.
-  destruct (path_V_eqimg H) as (H1, H2).
-  specialize (H1 true); simpl in H1.
-  refine (minus1Trunc_ind _ H1).
-  intros [b0 p]; destruct b0.
-  + split. exact p. refine (minus1Trunc_ind _ (H2 false)).
-    intros [a0 p']; destruct a0.
-    * apply Empty_rect. apply irreflexive_mem with a'.
-      apply (snd extensionality (p^ @ p')).
-      exact (min1 (true; 1)).
-    * destruct (path_V_eqimg p') as (H3, _). admit.
-      (* needs decidability of equality in V ? *)
-  + admit.
-- intros (p, p'). apply path_pair. split. exact p.
+  split.
+  - intro p. assert (p1 : a = c).
+    + assert (H : V_singleton a ∈ [c, d]). apply (snd extensionality p). simpl.
+        apply min1; exists true; reflexivity.
+      refine (minus1Trunc_ind _ H). intros [t p']; destruct t.
+      apply (fst path_singleton p'^).
+      symmetry; apply (fst pair_eq_singleton p').
+    + split. exact p1.
+      assert (H : hor (b = c) (b = d)).
+      * assert (H' : V_pair a b ∈ [c, d]). apply (snd extensionality p).
+          apply min1; exists false; reflexivity.
+        refine (minus1Trunc_ind _ H'). intros [t p']; destruct t.
+        apply min1; left. apply (fst pair_eq_singleton p'^).
+        destruct (path_V_eqimg p') as (H1, H2).
+        generalize (H2 false); apply minus1Trunc_map. intros [t p'']; destruct t.
+        left; exact p''^. right; exact p''^.
+      * refine (minus1Trunc_ind _ H). intro case; destruct case as [p'| p'].
+        assert (H' : [a, b] = V_singleton (V_singleton b)).
+          apply (snd pair_eq_singleton).
+          split. apply path_singleton; exact (p1 @ p'^).
+          apply (snd pair_eq_singleton).
+          split; [exact (p1 @ p'^) | reflexivity].
+        assert (H'' : V_pair c d = V_singleton b).
+          apply (fst pair_eq_singleton (p^ @ H')).
+        symmetry; apply (fst pair_eq_singleton H'').
+        assumption.
+- intros (p, p'). apply path_pair. split. apply path_singleton; exact p.
   apply path_pair. split; assumption; assumption.
 Defined.
 
