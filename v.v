@@ -90,7 +90,7 @@ Definition Bitot {A B : Type} (R : A -> B -> hProp) :=
  * (forall b : B, hexists (fun (a : A) => R a b)).
 
 
-(* ** Cumulative hierarchy ** *)
+(* ** The cumulative hierarchy V ** *)
 
 Module Export CumulativeHierarchy.
 
@@ -103,6 +103,7 @@ Axiom setext : forall {A B : Type} (R : A -> B -> hProp)
   (bitot_R : Bitot R) (h : RPushout R -> V),
 set (h o (inL R)) = set (h o (inR R)).
 
+(* This is a handy shortcut, if Coq really supported higher inductive types, we should define the 0-truncation constructor using the circle, etc. *)
 Axiom is0trunc_V : IsTrunc 0 V.
 
 Definition V_rect (P : V -> Type)
@@ -586,7 +587,7 @@ Proof.
 Defined.
 
 (* The pair {u,v} *)
-Definition V_pair (u : V) (v : V) := set (fun b : Bool => if b then u else v).
+Definition V_pair (u : V) (v : V) : V := set (fun b : Bool => if b then u else v).
 
 Lemma path_pair {u v u' v' : V} : (u = u') * (v = v') -> V_pair u v = V_pair u' v'.
 Proof.
@@ -610,7 +611,7 @@ Proof.
 Defined.
 
 (* The ordered pair (u,v) *)
-Definition V_pair_ord (u : V) (v : V) := V_pair (V_singleton u) (V_pair u v).
+Definition V_pair_ord (u : V) (v : V) : V := V_pair (V_singleton u) (V_pair u v).
 
 Notation " [ u , v ] " := (V_pair_ord u v)
   (at level 20).
@@ -643,7 +644,8 @@ Proof.
           apply (fst pair_eq_singleton (p^ @ H')).
         symmetry; apply (fst pair_eq_singleton H'').
         assumption.
-- intros (p, p'). apply path_pair. split. apply path_singleton; exact p.
+- intros (p, p').
+  apply path_pair. split. apply path_singleton; exact p.
   apply path_pair. split; assumption; assumption.
 Defined.
 
@@ -662,6 +664,10 @@ Definition V_is_func (a : V) (b : V) (f : V) := f ⊆ a × b
 (* The set of functions from a to b *)
 Definition V_func (a : V) (b : V) : V
 := @set ([a] -> [b]) (fun f => set (fun x => [FuncOfMembers x, FuncOfMembers (f x)] )).
+
+(* The union of a set Uv *)
+Definition V_union (v : V) := 
+  @set ({x : [v] & [FuncOfMembers x]}) (fun z => FuncOfMembers (pr2 z)).
 
 (* The ordinal successor x ∪ {x} *)
 Definition V_succ : V -> V.
@@ -709,7 +715,24 @@ Proof.
   intros [n p]. exists (S n). rewrite p; auto.
 Qed.
 
-(* TODO : Union *)
+Lemma union : forall v, hexists (fun w => forall x, x ∈ w <-> hexists (fun u => x ∈ u * u ∈ v)).
+Proof.
+  intro v. apply min1; exists (V_union v).
+  intro x; split.
+  - intro H. simpl in H. generalize H; apply minus1Trunc_map.
+    intros [[u' x'] p]; simpl in p.
+    exists (FuncOfMembers u'); split.
+    + refine (transport (fun z => x ∈ z) (is_valid_presentation (FuncOfMembers u'))^ _).
+      simpl. apply min1; exists x'. exact p.
+    + refine (transport (fun z => FuncOfMembers u' ∈ z) (is_valid_presentation v)^ _).
+      simpl. apply min1; exists u'; reflexivity.
+  - apply minus1Trunc_ind. intros [u (Hx, Hu)].
+    generalize (transport (fun z => u ∈ z) (is_valid_presentation v) Hu).
+    apply minus1Trunc_ind. intros [u' pu].
+    generalize (transport (fun z => x ∈ z) (is_valid_presentation (FuncOfMembers u')) (transport (fun z => x ∈ z) pu^ Hx)).
+    apply minus1Trunc_ind. intros [x' px].
+    apply min1. exists (u'; x'). exact px.
+Qed.
 
 Lemma function : forall u v, hexists (fun w => forall x, x ∈ w <-> V_is_func u v x).
 Proof.
