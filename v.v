@@ -10,22 +10,24 @@ Generalizable Variables A B R f g h.
 
 (* ** Misc. definitions & lemmas ** *)
 
+(* This is slightly more general than the composition defined in overture.v (where g : B -> C) *)
 Definition compose {A B C} (g : forall b, C b) (f : A -> B) :=
   fun x : A => g (f x).
 
 Hint Unfold compose.
 
-Notation " g ∘ f " := (compose g f)
-  (at level 40, left associativity).
+Notation " g 'o' f " := (compose g f)
+  (at level 40, left associativity) : function_scope.
 
 Definition hor (P:Type) (Q:Type):Type:= minus1Trunc (P + Q).
 
-Lemma untrunc {P : Type} : (IsHProp P) -> (minus1Trunc P) -> P.
+Lemma untrunc_hprop {P : Type} : (IsHProp P) -> (minus1Trunc P) -> P.
 Proof.
-  intro. apply minus1Trunc_ind. exact idmap.
-Defined. 
+  intro.
+  apply minus1Trunc_ind. exact idmap.
+Defined.
 
-Lemma mono_cancel {A B : Type} (m : A -> B) : is_mono m -> (forall a a', m a = m a' -> a = a').
+Lemma mono_implies_inj {A B : Type} (m : A -> B) : is_mono m -> (forall a a', m a = m a' -> a = a').
 Proof.
   intros H a a' p.
   specialize (H (m a')). unfold hfiber in *.
@@ -35,6 +37,8 @@ Proof.
 Defined.
 
 (* ** Pushout with respect to a relation ** *)
+
+(* This could be implemented using the pushouts in /hit/Pushout.v, where f and g are the (fst ∘ pr1) and (snd ∘ pr1), with domain {(a,b) : A * B & R a b}. However, these pushouts weren't implemented when I started this work, and doing it this way is closer to exercise 10.11 of the HoTT book *)
 
 Module Export RPushout.
 
@@ -85,7 +89,7 @@ Defined.
 
 (* ** Bitotal relation ** *)
 
-Definition Bitot {A B : Type} (R : A -> B -> hProp) :=
+Definition bitot {A B : Type} (R : A -> B -> hProp) :=
    (forall a : A, hexists (fun (b : B) => R a b))
  * (forall b : B, hexists (fun (a : A) => R a b)).
 
@@ -94,25 +98,26 @@ Definition Bitot {A B : Type} (R : A -> B -> hProp) :=
 
 Module Export CumulativeHierarchy.
 
+(* This fixes two particular universes U and U'. To be universe polymorphic, we could remove the next line, and then use Type@{U} or V@{U' U} in some places (in the definition of bisimulation for example) to make it work. However, one of the lemmas about the V_pair still doesn't typecheck, because of what looks like a bug in the way Coq handles universes. *)
 Universe U U'.
 
 Private Inductive V : Type@{U'} :=
 | set {A : Type@{U}} (f : A -> V) : V.
 
 Axiom setext : forall {A B : Type} (R : A -> B -> hProp)
-  (bitot_R : Bitot R) (h : RPushout R -> V),
+  (bitot_R : bitot R) (h : RPushout R -> V),
 set (h o (inL R)) = set (h o (inR R)).
 
 (* This is a handy shortcut, if Coq really supported higher inductive types, we should define the 0-truncation constructor using the circle, etc. *)
 Axiom is0trunc_V : IsTrunc 0 V.
 
 Definition V_rect (P : V -> Type)
-  (H_set : forall (A : Type) (f : A -> V) (H_f : forall a : A, P (f a)), P (set f))
-  (H_setext : forall (A B : Type) (R : A -> B -> hProp) (bitot_R : Bitot R)
-    (h : RPushout R -> V) (H_h : forall x : RPushout R, P (h x)),
-    (setext R bitot_R h) # (H_set A (h ∘ inL R) (H_h ∘ inL R))
-      = H_set B (h ∘ inR R) (H_h ∘ inR R) )
   (H_0trunc : forall v : V, IsTrunc 0 (P v))
+  (H_set : forall (A : Type) (f : A -> V) (H_f : forall a : A, P (f a)), P (set f))
+  (H_setext : forall (A B : Type) (R : A -> B -> hProp) (bitot_R : bitot R)
+    (h : RPushout R -> V) (H_h : forall x : RPushout R, P (h x)),
+    (setext R bitot_R h) # (H_set A (h o inL R) (H_h o inL R))
+      = H_set B (h o inR R) (H_h o inR R) )
 : forall v : V, P v
 := fix F (v : V) :=
      (match v with
@@ -120,15 +125,15 @@ Definition V_rect (P : V -> Type)
      end) H_setext H_0trunc.
 
 Axiom V_comp_setext : forall (P : V -> Type)
-  (H_set : forall (A : Type) (f : A -> V) (H_f : forall a : A, P (f a)), P (set f))
-  (H_setext : forall (A B : Type) (R : A -> B -> hProp) (bitot_R : Bitot R)
-    (h : RPushout R -> V) (H_h : forall x : RPushout R, P (h x)),
-    (setext R bitot_R h) # (H_set A (h ∘ inL R) (H_h ∘ inL R))
-      = H_set B (h ∘ inR R) (H_h ∘ inR R) )
   (H_0trunc : forall v : V, IsTrunc 0 (P v))
-  (A B : Type) (R : A -> B -> hProp) (bitot_R : Bitot R) (h : RPushout R -> V),
-apD (V_rect P H_set H_setext H_0trunc) (setext R bitot_R h)
-= H_setext A B R bitot_R h ((V_rect P H_set H_setext H_0trunc) ∘ h).
+  (H_set : forall (A : Type) (f : A -> V) (H_f : forall a : A, P (f a)), P (set f))
+  (H_setext : forall (A B : Type) (R : A -> B -> hProp) (bitot_R : bitot R)
+    (h : RPushout R -> V) (H_h : forall x : RPushout R, P (h x)),
+    (setext R bitot_R h) # (H_set A (h o inL R) (H_h o inL R))
+      = H_set B (h o inR R) (H_h o inR R) )
+  (A B : Type) (R : A -> B -> hProp) (bitot_R : bitot R) (h : RPushout R -> V),
+apD (V_rect P H_0trunc H_set H_setext) (setext R bitot_R h)
+= H_setext A B R bitot_R h ((V_rect P H_0trunc H_set H_setext) o h).
 
 End CumulativeHierarchy.
 
@@ -136,43 +141,42 @@ End CumulativeHierarchy.
 (* ** The non-dependent eliminator ** *)
 
 Definition V_rect_nd (P : Type)
-  (H_set : forall (A : Type), (A -> V) -> (A -> P) -> P)
-  (H_setext : forall (A B : Type) (R : A -> B -> hProp) (bitot_R : Bitot R)
-    (h : RPushout R -> V) (H_h : RPushout R -> P),
-    H_set A (h ∘ inL R) (H_h ∘ inL R) = H_set B (h ∘ inR R) (H_h ∘ inR R) )
   (H_0trunc : IsTrunc 0 P)
+  (H_set : forall (A : Type), (A -> V) -> (A -> P) -> P)
+  (H_setext : forall (A B : Type) (R : A -> B -> hProp) (bitot_R : bitot R)
+    (h : RPushout R -> V) (H_h : RPushout R -> P),
+    H_set A (h o inL R) (H_h o inL R) = H_set B (h o inR R) (H_h o inR R) )
 : V -> P.
 Proof.
-  apply (V_rect (fun _ => P) H_set).
+  refine (V_rect _ _ H_set _).
   intros. exact (transport_const _ _ @ H_setext A B R bitot_R h H_h).
-  intro; assumption.
 Defined.
 
 Definition V_comp_nd_setext (P : Type)
-  (H_set : forall (A : Type), (A -> V) -> (A -> P) -> P)
-  (H_setext : forall (A B : Type) (R : A -> B -> hProp) (bitot_R : Bitot R)
-    (h : RPushout R -> V) (H_h : RPushout R -> P),
-    H_set A (h ∘ inL R) (H_h ∘ inL R) = H_set B (h ∘ inR R) (H_h ∘ inR R) )
   (H_0trunc : IsTrunc 0 P)
-  (A B : Type) (R : A -> B -> hProp) (bitot_R : Bitot R) (h : RPushout R -> V)
-: ap (V_rect_nd P H_set H_setext H_0trunc) (setext R bitot_R h)
-  = H_setext A B R bitot_R h ((V_rect_nd P H_set H_setext H_0trunc) ∘ h).
+  (H_set : forall (A : Type), (A -> V) -> (A -> P) -> P)
+  (H_setext : forall (A B : Type) (R : A -> B -> hProp) (bitot_R : bitot R)
+    (h : RPushout R -> V) (H_h : RPushout R -> P),
+    H_set A (h o inL R) (H_h o inL R) = H_set B (h o inR R) (H_h o inR R) )
+  (A B : Type) (R : A -> B -> hProp) (bitot_R : bitot R) (h : RPushout R -> V)
+: ap (V_rect_nd P H_0trunc H_set H_setext) (setext R bitot_R h)
+  = H_setext A B R bitot_R h ((V_rect_nd P H_0trunc H_set H_setext) o h).
 Proof.
 (* We might want to fill-in the blank in transport_const next line *)
   apply (cancelL (transport_const (setext R bitot_R h) _)).
-  path_via (apD (V_rect_nd P H_set H_setext H_0trunc) (setext R bitot_R h)).
-  symmetry; refine (apD_const (V_rect_nd P H_set H_setext H_0trunc) _).
+  path_via (apD (V_rect_nd P H_0trunc H_set H_setext) (setext R bitot_R h)).
+  symmetry; refine (apD_const (V_rect_nd P H_0trunc H_set H_setext) _).
   refine (V_comp_setext (fun _ => P) _ _ _ _ _ _ _ _).
 Defined.
 
 
 (* ** Alternative induction principle (This is close to the one from the book) ** *)
 
-Definition Equal_img {A B C : Type} (f : A -> C) (g : B -> C) :=
+Definition equal_img {A B C : Type} (f : A -> C) (g : B -> C) :=
    (forall a : A, hexists (fun (b : B) => f a = g b))
  * (forall b : B, hexists (fun (a : A) => f a = g b)).
 
-Let setext' {A B : Type} (f : A -> V) (g : B -> V) (eq_img : Equal_img f g)
+Let setext' {A B : Type} (f : A -> V) (g : B -> V) (eq_img : equal_img f g)
 : set f = set g.
 Proof.
   pose (R := fun a b => hp (f a = g b) _).
@@ -181,14 +185,14 @@ Proof.
 Defined.
 
 Definition V_rect'_nd (P : Type)
-  (H_set : forall (A : Type), (A -> V) -> (A -> P) -> P)
-  (H_setext' : forall (A B : Type) (f : A -> V) (g : B -> V), (Equal_img f g) ->
-    forall (H_f : A -> P) (H_g : B -> P), (Equal_img H_f H_g) ->
-    (H_set A f H_f) = (H_set B g H_g) )
   (H_0trunc : IsTrunc 0 P)
+  (H_set : forall (A : Type), (A -> V) -> (A -> P) -> P)
+  (H_setext' : forall (A B : Type) (f : A -> V) (g : B -> V), (equal_img f g) ->
+    forall (H_f : A -> P) (H_g : B -> P), (equal_img H_f H_g) ->
+    (H_set A f H_f) = (H_set B g H_g) )
 : V -> P.
 Proof.
-  refine (V_rect_nd P H_set _ H_0trunc).
+  refine (V_rect_nd _ _ H_set _).
   intros A B R bitot_R h H_h.
   apply H_setext'.
   - split.
@@ -209,29 +213,30 @@ Definition V_rect' (P : V -> Type)
   (H_0trunc : forall v : V, IsTrunc 0 (P v))
   (H_set : forall (A : Type) (f : A -> V) (H_f : forall a : A, P (f a)), P (set f))
   (H_setext' : forall (A B : Type) (f : A -> V) (g : B -> V)
-    (eq_img: Equal_img f g)
-    (H_f : forall a : A, P (f a)) (H_g : forall b : B, P (g b)),
-    ((forall a : A, hexists (fun (b : B) =>
-         hexists (fun (p:f a = g b) => p # (H_f a)=H_g b)))
-   * (forall b : B, hexists (fun (a : A) =>
-         hexists (fun (p:f a = g b) => p# (H_f a)=H_g b))) ->
-    (setext' f g eq_img) # (H_set A f H_f) = (H_set B g H_g) ))
+    (eq_img: equal_img f g)
+    (H_f : forall a : A, P (f a)) (H_g : forall b : B, P (g b))
+    (H_eqimg : (forall a : A, hexists (fun (b : B) =>
+                  hexists (fun (p:f a = g b) => p # (H_f a) = H_g b)))
+             * (forall b : B, hexists (fun (a : A) =>
+                  hexists (fun (p:f a = g b) => p # (H_f a) = H_g b))) ),
+    (setext' f g eq_img) # (H_set A f H_f) = (H_set B g H_g)
+  )
 : forall v : V, P v.
 Proof.
   apply V_rect with H_set; try assumption.
   intros A B R bitot_R h H_h.
-  pose (f := h ∘ inL R : A -> V ).
-  pose (g := h ∘ inR R : B -> V ).
-  pose (H_f := H_h ∘ inL R : forall a : A, P (f a)).
-  pose (H_g := H_h ∘ inR R : forall b : B, P (g b)).
-  assert (eq_img : Equal_img f g). split.
+  pose (f := h o inL R : A -> V ).
+  pose (g := h o inR R : B -> V ).
+  pose (H_f := H_h o inL R : forall a : A, P (f a)).
+  pose (H_g := H_h o inR R : forall b : B, P (g b)).
+  assert (eq_img : equal_img f g). split.
     intro a. generalize (fst bitot_R a). apply minus1Trunc_map.
       intros [b r]. exists b. exact (ap h (glue R _ _ r)).
     intro b. generalize (snd bitot_R b). apply minus1Trunc_map.
       intros [a r]. exists a. exact (ap h (glue R _ _ r)).
-  path_via (transport P (setext' (h ∘ inL R) (h ∘ inR R) eq_img)
-                (H_set A (h ∘ inL R) (H_h ∘ inL R))).
-    apply (ap (fun p => transport P p (H_set A (h ∘ inL R) (H_h ∘ inL R)))).
+  path_via (transport P (setext' (h o inL R) (h o inR R) eq_img)
+                (H_set A (h o inL R) (H_h o inL R))).
+    apply (ap (fun p => transport P p (H_set A (h o inL R) (H_h o inL R)))).
     apply allpath_hprop.
   apply (H_setext' A B f g eq_img H_f H_g).  split.
   - intro a.
@@ -260,9 +265,8 @@ Definition V_rect_hprop (P : V -> Type)
   (isHProp_P : forall v : V, IsHProp (P v))
   : forall v : V, P v.
 Proof.
-  apply V_rect with H_set.
+  refine (V_rect _ _ H_set _).
   intros. apply allpath_hprop.
-  intro. apply trunc_succ.
 Defined.
 
 
@@ -285,8 +289,8 @@ Proof.
 Defined.
 
 Notation " x ∈ v " := (mem x v)
-  (at level 30).
-
+  (at level 30) : set_scope.
+Open Scope set_scope.
 
 (* ** Subset relation ** *)
 
@@ -294,7 +298,7 @@ Definition subset (x : V) (y : V) : hProp
 := hp (forall z : V, z ∈ x -> z ∈ y) _.
 
 Notation " x ⊆ y " := (subset x y)
-  (at level 30).
+  (at level 30) : set_scope.
 
 
 (* ** Bisimulation relation ** *)
@@ -307,7 +311,7 @@ Proof.
     (fun B g _ => hp ( (forall a, hexists (fun b => H_f a (g b)))
                       * forall b, hexists (fun a => H_f a (g b)) ) _
     ).
-  2: apply isset_hProp.
+  exact _.
   intros B B' g g' eq_img H_g H_g' H_img; simpl.
   apply path_iff_hProp_uncurried; split; simpl.
   - intros [H1 H2]; split.
@@ -327,7 +331,7 @@ Proof.
   Defined.
 
 (* Then define bisim : V -> (V -> hProp) by induction again *)
-refine (V_rect'_nd (V -> hProp) bisim_aux _ _).
+refine (V_rect'_nd (V -> hProp) _ bisim_aux _).
 intros A B f g eq_img H_f H_g H_img.
 apply path_forall.
 refine (V_rect_hprop _ _ _).
@@ -349,8 +353,9 @@ apply path_iff_hProp_uncurried; split; simpl.
         intros [a p]. exists a. exact ((ap10 p^ (h c)) # H3).
 Defined.
 
+
 Notation " u ~~ v " := (bisimulation u v)
-  (at level 30).
+  (at level 30) : set_scope.
 
 Lemma reflexive_bisim : forall u, u ~~ u.
 Proof.
@@ -360,7 +365,7 @@ Proof.
     intro a; apply min1; exists a; auto.
 Defined.
 
-Lemma BisimEqualsId : forall u v : V, (u = v) = (u ~~ v).
+Lemma bisim_equals_id : forall u v : V, (u = v) = (u ~~ v).
 Proof.
   intros u v.
   apply path_iff_hprop_uncurried; split.
@@ -379,6 +384,7 @@ Defined.
 
 (* ** Canonical presentation of V-sets (Lemma 10.5.6) ** *)
 
+(* Using the regular kernel (with = instead of ~~) also works, but this seems to be a Coq bug, it should lead to a universe inconsistency in the monic_set_present lemma later. This version is the good way to do it. *)
 Definition ker_bisim {A} (f : A -> V) (x y : A) := (f x ~~ f y).
 Lemma setrel_ker_bisim {A} (f : A -> V) : setrel (ker_bisim f).
 Proof.
@@ -386,7 +392,7 @@ Proof.
 Defined.
 
 Lemma inj_surj_factor_V {A : Type} (f : A -> V)
-: exists (C : Type) (e : A -> C) (m : C -> V), IsHSet C * is_epi e * is_mono m * (f = m ∘ e).
+: exists (C : Type) (e : A -> C) (m : C -> V), IsHSet C * is_epi e * is_mono m * (f = m o e).
 Proof.
   pose (C := quotient (setrel_ker_bisim f)).
   assert (IsHSet C) by (unfold C; apply _).
@@ -396,7 +402,7 @@ Proof.
   refine (let m := _ : C -> V in _).
     apply quotient_rect with f.
     intros x y H. path_via (f x). apply transport_const.
-    exact (transport (fun X => X) (BisimEqualsId (f x) (f y))^ H).
+    exact (transport (fun X => X) (bisim_equals_id (f x) (f y))^ H).
   exists m.
   split. split. split.
   - assumption.
@@ -409,7 +415,7 @@ Proof.
       refine (quotient_rect _ _ _). intro a.
       refine (quotient_rect _ _ _). intros a' p p'.
       apply related_classes_eq.
-        refine (transport (fun X => X) (BisimEqualsId _ _) _).
+        refine (transport (fun X => X) (bisim_equals_id _ _) _).
         path_via (m (e a)). path_via (m (e a')).
         exact (p @ p'^).
       intros; apply allpath_hprop.
@@ -421,7 +427,7 @@ Proof.
 Defined.
 
 
-Section MonicSetPresent_Unique.
+Section MonicSetPresent_Uniqueness.
 (* Given u : V, we want to show that the representation u = @set Au mu, where Au is an hSet and mu is monic, is unique. *)
 
 Context {u : V} {Au Au': Type} {h : IsHSet Au} {h' : IsHSet Au'} {mu : Au -> V} {mono : is_mono mu}
@@ -431,8 +437,8 @@ Lemma eq_img_untrunc : (forall a : Au, {a' : Au' & mu' a' = mu a})
                      * (forall a' : Au', {a : Au & mu a = mu' a'}).
 Proof.
   split.
-  intro a. exact (untrunc (mono' (mu a)) (transport (fun x => mu a ∈ x) (p^ @ p') (min1 (a; 1)))).
-  intro a'. exact (untrunc (mono (mu' a')) (transport (fun x => mu' a' ∈ x) (p'^ @ p) (min1 (a'; 1)))).
+  intro a. exact (untrunc_hprop (mono' (mu a)) (transport (fun x => mu a ∈ x) (p^ @ p') (min1 (a; 1)))).
+  intro a'. exact (untrunc_hprop (mono (mu' a')) (transport (fun x => mu' a' ∈ x) (p'^ @ p) (min1 (a'; 1)))).
 Defined.
 
 Let e : Au -> Au' := fun a => pr1 (fst eq_img_untrunc a).
@@ -441,7 +447,7 @@ Let inv_e : Au' -> Au := fun a' => pr1 (snd eq_img_untrunc a').
 Definition hom1 : Sect inv_e e.
 Proof.
   intro a'.
-  apply (mono_cancel mu' mono').
+  apply (mono_implies_inj mu' mono').
   path_via (mu (inv_e a')).
   exact (pr2 (fst eq_img_untrunc (inv_e a'))).
   exact (pr2 (snd eq_img_untrunc a')).
@@ -450,7 +456,7 @@ Defined.
 Definition hom2 : Sect e inv_e.
 Proof.
   intro a.
-  apply (mono_cancel mu mono).
+  apply (mono_implies_inj mu mono).
   path_via (mu' (e a)).
   exact (pr2 (snd eq_img_untrunc (e a))).
   exact (pr2 (fst eq_img_untrunc a)).
@@ -477,7 +483,7 @@ Proof.
   apply transport_path_universe.
 Defined.
 
-Lemma set_mono_uniqueness : (Au; (mu; (h, mono, p))) = (Au'; (mu'; (h', mono', p'))) :> {A : Type & {m : A -> V & IsHSet A * is_mono m * (u = set m)}}.
+Lemma monic_set_present_uniqueness : (Au; (mu; (h, mono, p))) = (Au'; (mu'; (h', mono', p'))) :> {A : Type & {m : A -> V & IsHSet A * is_mono m * (u = set m)}}.
 Proof.
   apply path_sigma_uncurried; simpl.
   exists path^.
@@ -487,10 +493,10 @@ Proof.
   exact mu_eq_mu'.
 Defined.
 
-End MonicSetPresent_Unique.
+End MonicSetPresent_Uniqueness.
 
 (* This lemma actually says a little more than 10.5.6, i.e., that Au is a hSet *)
-Lemma MonicSetPresent : forall u : V, exists (Au : Type) (m : Au -> V),
+Lemma monic_set_present : forall u : V, exists (Au : Type) (m : Au -> V),
   (IsHSet Au) * (is_mono m) * (u = set m).
 Proof.
   apply V_rect_hprop.
@@ -505,24 +511,24 @@ Proof.
   - intro v. apply hprop_allpath.
     intros [Au [mu ((hset, mono), p)]].
     intros [Au' [mu' ((hset', mono'), p')]].
-    apply set_mono_uniqueness.
+    apply monic_set_present_uniqueness.
 Defined.
 
-Definition TypeOfMembers (u : V) : Type := pr1 (MonicSetPresent u).
+Definition type_of_members (u : V) : Type := pr1 (monic_set_present u).
 
-Notation " [ u ] " := (TypeOfMembers u)
-  (at level 20).
+Notation " [ u ] " := (type_of_members u)
+  (at level 20) : set_scope.
 
-Definition FuncOfMembers {u : V} : [u] -> V := pr1 (pr2 (MonicSetPresent u)) : [u] -> V.
+Definition func_of_members {u : V} : [u] -> V := pr1 (pr2 (monic_set_present u)) : [u] -> V.
 
-Definition is_hset_TypeOfMembers {u : V} : IsHSet ([u]) := fst (fst (pr2 (pr2 (MonicSetPresent u)))).
+Definition is_hset_typeofmembers {u : V} : IsHSet ([u]) := fst (fst (pr2 (pr2 (monic_set_present u)))).
 
-Definition is_mono_FuncOfMembers {u : V} : is_mono FuncOfMembers := snd (fst (pr2 (pr2 (MonicSetPresent u)))).
+Definition is_mono_funcofmembers {u : V} : is_mono func_of_members := snd (fst (pr2 (pr2 (monic_set_present u)))).
 
-Definition is_valid_presentation (u : V) : u = set FuncOfMembers := snd (pr2 (pr2 (MonicSetPresent u))).
+Definition is_valid_presentation (u : V) : u = set func_of_members := snd (pr2 (pr2 (monic_set_present u))).
 
 
-(* ** Lemmas 10.5.8 (i) & (vii), I put them here because they are useful later ** *)
+(* ** Lemmas 10.5.8 (i) & (vii), we put them here because they are useful later ** *)
 Lemma mem_induction (C : V -> hProp)
 : (forall v, (forall x, x ∈ v -> C x) -> C v) -> forall v, C v.
 Proof.
@@ -547,6 +553,9 @@ Proof.
     intros z Hz. apply (transport (fun x => z ∈ x) p^ Hz).
 Qed.
 
+
+(* ** Two useful lemmas ** *)
+
 Lemma irreflexive_mem : forall x, ~ (x ∈ x).
 Proof.
   refine (mem_induction (fun x => hp (~ x ∈ x) _) _); simpl in *.
@@ -554,7 +563,7 @@ Proof.
   exact (H v Hv Hv).
 Defined.
 
-Lemma path_V_eqimg {A B} {f : A -> V} {g : B -> V} : set f = set g -> Equal_img f g.
+Lemma path_V_eqimg {A B} {f : A -> V} {g : B -> V} : set f = set g -> equal_img f g.
 Proof.
   intro p. split.
   - intro a.
@@ -614,7 +623,7 @@ Defined.
 Definition V_pair_ord (u : V) (v : V) : V := V_pair (V_singleton u) (V_pair u v).
 
 Notation " [ u , v ] " := (V_pair_ord u v)
-  (at level 20).
+  (at level 20) : set_scope.
 
 Lemma path_pair_ord {a b c d : V} : [a, b] = [c, d] <-> (a = c) * (b = d).
 Proof.
@@ -651,10 +660,10 @@ Defined.
 
 (* The cartesian product a × b *)
 Definition V_cart_prod (a : V) (b : V) : V
-:= set (fun x : [a] * [b] => [FuncOfMembers (fst x), FuncOfMembers (snd x)]).
+:= set (fun x : [a] * [b] => [func_of_members (fst x), func_of_members (snd x)]).
 
 Notation " a × b " := (V_cart_prod a b)
-  (at level 25).
+  (at level 25) : set_scope.
 
 (* f is a function with domain a and codomain b *)
 Definition V_is_func (a : V) (b : V) (f : V) := f ⊆ a × b
@@ -663,11 +672,11 @@ Definition V_is_func (a : V) (b : V) (f : V) := f ⊆ a × b
 
 (* The set of functions from a to b *)
 Definition V_func (a : V) (b : V) : V
-:= @set ([a] -> [b]) (fun f => set (fun x => [FuncOfMembers x, FuncOfMembers (f x)] )).
+:= @set ([a] -> [b]) (fun f => set (fun x => [func_of_members x, func_of_members (f x)] )).
 
 (* The union of a set Uv *)
 Definition V_union (v : V) := 
-  @set ({x : [v] & [FuncOfMembers x]}) (fun z => FuncOfMembers (pr2 z)).
+  @set ({x : [v] & [func_of_members x]}) (fun z => func_of_members (pr2 z)).
 
 (* The ordinal successor x ∪ {x} *)
 Definition V_succ : V -> V.
@@ -721,15 +730,15 @@ Proof.
   intro x; split.
   - intro H. simpl in H. generalize H; apply minus1Trunc_map.
     intros [[u' x'] p]; simpl in p.
-    exists (FuncOfMembers u'); split.
-    + refine (transport (fun z => x ∈ z) (is_valid_presentation (FuncOfMembers u'))^ _).
+    exists (func_of_members u'); split.
+    + refine (transport (fun z => x ∈ z) (is_valid_presentation (func_of_members u'))^ _).
       simpl. apply min1; exists x'. exact p.
-    + refine (transport (fun z => FuncOfMembers u' ∈ z) (is_valid_presentation v)^ _).
+    + refine (transport (fun z => func_of_members u' ∈ z) (is_valid_presentation v)^ _).
       simpl. apply min1; exists u'; reflexivity.
   - apply minus1Trunc_ind. intros [u (Hx, Hu)].
     generalize (transport (fun z => u ∈ z) (is_valid_presentation v) Hu).
     apply minus1Trunc_ind. intros [u' pu].
-    generalize (transport (fun z => x ∈ z) (is_valid_presentation (FuncOfMembers u')) (transport (fun z => x ∈ z) pu^ Hx)).
+    generalize (transport (fun z => x ∈ z) (is_valid_presentation (func_of_members u')) (transport (fun z => x ∈ z) pu^ Hx)).
     apply minus1Trunc_ind. intros [x' px].
     apply min1. exists (u'; x'). exact px.
 Qed.
@@ -737,8 +746,8 @@ Qed.
 Lemma function : forall u v, hexists (fun w => forall x, x ∈ w <-> V_is_func u v x).
 Proof.
   intros u v. apply min1; exists (V_func u v).
-  assert (memb_u : u = set (@FuncOfMembers u)) by exact (is_valid_presentation u).
-  assert (memb_v : v = set (@FuncOfMembers v)) by exact (is_valid_presentation v).
+  assert (memb_u : u = set (@func_of_members u)) by exact (is_valid_presentation u).
+  assert (memb_v : v = set (@func_of_members v)) by exact (is_valid_presentation v).
   intro phi; split.
   - intro H. split. split.
     + intros z Hz. simpl in *. generalize H. apply minus1Trunc_ind.
@@ -746,36 +755,36 @@ Proof.
       intros [a p]. exists (a, h a). assumption.
     + intros x Hx. generalize (transport (fun y => x ∈ y) memb_u Hx).
       apply minus1Trunc_ind. intros [a p]. generalize H; apply minus1Trunc_map.
-      intros [h p_phi]. exists (FuncOfMembers (h a)). split.
-      exact (transport (fun z => FuncOfMembers (h a) ∈ z) memb_v^ (min1 (h a; 1))).
-      apply (transport (fun y => [x, FuncOfMembers (h a)] ∈ y) p_phi).
+      intros [h p_phi]. exists (func_of_members (h a)). split.
+      exact (transport (fun z => func_of_members (h a) ∈ z) memb_v^ (min1 (h a; 1))).
+      apply (transport (fun y => [x, func_of_members (h a)] ∈ y) p_phi).
       apply min1; exists a. rewrite p; reflexivity.
     + intros x y y' (Hy, Hy'). generalize H; apply minus1Trunc_ind. intros [h p_phi].
       generalize (transport (fun z => [x, y] ∈ z) p_phi^ Hy). apply minus1Trunc_ind. intros [a p].
       generalize (transport (fun z => [x, y'] ∈ z) p_phi^ Hy'). apply minus1Trunc_ind. intros [a' p'].
       destruct (fst path_pair_ord p) as (px, py). destruct (fst path_pair_ord p') as (px', py').
-      path_via (FuncOfMembers (h a)). path_via (FuncOfMembers (h a')).
-      refine (ap FuncOfMembers _). refine (ap h _).
-      apply (mono_cancel FuncOfMembers is_mono_FuncOfMembers a a' (px @ px'^)).
+      path_via (func_of_members (h a)). path_via (func_of_members (h a')).
+      refine (ap func_of_members _). refine (ap h _).
+      apply (mono_implies_inj func_of_members is_mono_funcofmembers a a' (px @ px'^)).
   - intros ((H1, H2), H3). simpl.
-    assert (h : forall a : [u], {b : [v] & [FuncOfMembers a, FuncOfMembers b] ∈ phi}).
-    + intro a. pose (x := FuncOfMembers a).
-      refine (let H := untrunc _ (H2 x (transport (fun z => x ∈ z) memb_u^ (min1 (a; 1)))) in _).
+    assert (h : forall a : [u], {b : [v] & [func_of_members a, func_of_members b] ∈ phi}).
+    + intro a. pose (x := func_of_members a).
+      refine (let H := untrunc_hprop _ (H2 x (transport (fun z => x ∈ z) memb_u^ (min1 (a; 1)))) in _).
         apply hprop_allpath. intros [y (H1_y, H2_y)] [y' (H1_y', H2_y')].
         apply path_sigma_uncurried; simpl.
         exists (H3 x y y' (H2_y, H2_y')).
         apply allpath_hprop.
       destruct H as [y (H1_y, H2_y)].
-      destruct (untrunc (is_mono_FuncOfMembers y) (transport (fun z => y ∈ z) memb_v H1_y)) as [b Hb].
+      destruct (untrunc_hprop (is_mono_funcofmembers y) (transport (fun z => y ∈ z) memb_v H1_y)) as [b Hb].
       exists b. exact (transport (fun z => [x, z] ∈ phi) Hb^ H2_y).
     + apply min1; exists (fun a => pr1 (h a)). apply extensionality. split.
       intros z Hz. generalize Hz; apply minus1Trunc_ind. intros [a Ha].
         exact (transport (fun w => w ∈ phi) Ha (pr2 (h a))).
       intros z Hz. simpl.
       generalize (H1 z Hz). apply minus1Trunc_map. intros [(a,b) p]. simpl in p.
-      exists a. path_via ([FuncOfMembers a, FuncOfMembers b]).
+      exists a. path_via ([func_of_members a, func_of_members b]).
       apply path_pair_ord. split. reflexivity.
-      apply H3 with (FuncOfMembers a). split.
+      apply H3 with (func_of_members a). split.
       exact (pr2 (h a)).
       exact (transport (fun w => w ∈ phi) p^ Hz).
 Qed.
@@ -784,7 +793,7 @@ Lemma replacement : forall (r : V -> V) (x : V),
   hexists (fun w => forall y, y ∈ w <-> hexists (fun z => z ∈ x * (r z = y))).
 Proof.
   intro r. refine (V_rect_hprop _ _ _).
-  intros A f _. apply min1. exists (set (r ∘ f)). split.
+  intros A f _. apply min1. exists (set (r o f)). split.
   - apply minus1Trunc_map.
     intros [a p]. exists (f a). split. apply min1; exists a; auto. assumption.
   - apply minus1Trunc_ind.
