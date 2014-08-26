@@ -2,7 +2,9 @@
 
 (** * Theorems about the cumulative hierarchy [V]. *)
 
-Require Import HoTT.
+Require Import Overture PathGroupoids HProp Trunc Fibrations Equivalences EquivalenceVarieties UnivalenceImpliesFunext.
+Require Import types.Unit types.Bool types.Universe types.Sigma types.Arrow types.Forall.
+Require Import hit.minus1Trunc hit.quotient.
 Local Open Scope path_scope.
 Local Open Scope equiv_scope.
 Generalizable Variables A B R f g h.
@@ -811,6 +813,5 @@ Proof.
   - intros [H1 H2]. generalize H1. apply minus1Trunc_map.
       intros [a p]. exists (a; transport C p^ H2). exact p.
 Qed.
-
 
 End AssumingUA.
