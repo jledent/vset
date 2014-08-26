@@ -7,14 +7,12 @@ Require Import types.Unit types.Bool types.Universe types.Sigma types.Arrow type
 Require Import hit.minus1Trunc hit.quotient.
 Local Open Scope path_scope.
 Local Open Scope equiv_scope.
-Generalizable Variables A B R f g h.
 
 
 (* ** Misc. definitions & lemmas ** *)
 
-(* This is slightly more general than the composition defined in overture.v (where g : B -> C) *)
-Definition compose {A B C} (g : forall b, C b) (f : A -> B) :=
-  fun x : A => g (f x).
+(* This is slightly more general than the composition defined in overture.v (where g : B -> C). *)
+Definition compose {A B C} (g : forall b, C b) (f : A -> B) := fun x : A => g (f x).
 
 Hint Unfold compose.
 
