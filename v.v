@@ -7,7 +7,7 @@ Require Import types.Unit types.Bool types.Universe types.Sigma types.Arrow type
 Require Import hit.minus1Trunc hit.quotient.
 Local Open Scope path_scope.
 Local Open Scope equiv_scope.
-
+Test Universe Polymorphism.
 
 (* ** Misc. definitions & lemmas ** *)
 
@@ -98,9 +98,6 @@ Definition bitot {A B : Type} (R : A -> B -> hProp) :=
 
 Module Export CumulativeHierarchy.
 
-(* This fixes two particular universes U and U'. To be universe polymorphic, we could remove the next line, and then use Type@{U} or V@{U' U} in some places (in the definition of bisimulation for example) to make it work. However, one of the lemmas about the V_pair still doesn't typecheck, because of what looks like a bug in the way Coq handles universes. *)
-Universe U U'.
-
 Private Inductive V : Type@{U'} :=
 | set {A : Type@{U}} (f : A -> V) : V.
 
@@ -108,7 +105,6 @@ Axiom setext : forall {A B : Type} (R : A -> B -> hProp)
   (bitot_R : bitot R) (h : RPushout R -> V),
 set (h o (inL R)) = set (h o (inR R)).
 
-(* This is a handy shortcut, if Coq really supported higher inductive types, we should define the 0-truncation constructor using the circle, etc. *)
 Axiom is0trunc_V : IsTrunc 0 V.
 
 Definition V_rect (P : V -> Type)
@@ -137,7 +133,6 @@ apD (V_rect P H_0trunc H_set H_setext) (setext R bitot_R h)
 
 End CumulativeHierarchy.
 
-
 (* ** The non-dependent eliminator ** *)
 
 Definition V_rect_nd (P : Type)
@@ -162,11 +157,10 @@ Definition V_comp_nd_setext (P : Type)
 : ap (V_rect_nd P H_0trunc H_set H_setext) (setext R bitot_R h)
   = H_setext A B R bitot_R h ((V_rect_nd P H_0trunc H_set H_setext) o h).
 Proof.
-(* We might want to fill-in the blank in transport_const next line *)
   apply (cancelL (transport_const (setext R bitot_R h) _)).
   path_via (apD (V_rect_nd P H_0trunc H_set H_setext) (setext R bitot_R h)).
-  symmetry; refine (apD_const (V_rect_nd P H_0trunc H_set H_setext) _).
-  refine (V_comp_setext (fun _ => P) _ _ _ _ _ _ _ _).
+  symmetry; apply (apD_const (V_rect_nd P H_0trunc H_set H_setext)).
+  apply (V_comp_setext (fun _ => P)).
 Defined.
 
 
@@ -303,7 +297,8 @@ Notation " x ⊆ y " := (subset x y)
 
 (* ** Bisimulation relation ** *)
 
-Definition bisimulation : V -> V -> hProp@{U'}.
+(* The equality in V lives in Type@{U'}. We define the bisimulation relation which is a U-small resizing of the equality in V: it must live in hProp_U : Type{U'}, hence the codomain is hProp@{U'}. We then prove that bisimulation is equality (bisim_equals_id), then use it to prove the key lemma monic_set_present. *)
+Definition bisimulation : V@{U' U} -> V@{U' U} -> hProp@{U'}.
 Proof.
   (* We first fix the first argument as set(A,f) and define bisim_aux : V -> hProp, by induction. This is the inner of the two inductions. *)
   Definition bisim_aux (A : Type) (f : A -> V) (H_f : A -> V -> hProp) : (V -> hProp).
@@ -384,7 +379,7 @@ Defined.
 
 (* ** Canonical presentation of V-sets (Lemma 10.5.6) ** *)
 
-(* Using the regular kernel (with = instead of ~~) also works, but this seems to be a Coq bug, it should lead to a universe inconsistency in the monic_set_present lemma later. This version is the good way to do it. *)
+(* Using the regular kernel (with = instead of ~~) also works, but this seems to be a Coq bug, it should lead to a universe inconsistency in the monic_set_present lemma later. This version is the right way to do it. *)
 Definition ker_bisim {A} (f : A -> V) (x y : A) := (f x ~~ f y).
 Lemma setrel_ker_bisim {A} (f : A -> V) : setrel (ker_bisim f).
 Proof.
@@ -444,7 +439,7 @@ Defined.
 Let e : Au -> Au' := fun a => pr1 (fst eq_img_untrunc a).
 Let inv_e : Au' -> Au := fun a' => pr1 (snd eq_img_untrunc a').
 
-Definition hom1 : Sect inv_e e.
+Let hom1 : Sect inv_e e.
 Proof.
   intro a'.
   apply (mono_implies_inj mu' mono').
@@ -453,7 +448,7 @@ Proof.
   exact (pr2 (snd eq_img_untrunc a')).
 Defined.
 
-Definition hom2 : Sect e inv_e.
+Let hom2 : Sect e inv_e.
 Proof.
   intro a.
   apply (mono_implies_inj mu mono).
@@ -462,7 +457,7 @@ Proof.
   exact (pr2 (fst eq_img_untrunc a)).
 Defined.
 
-Lemma path : Au' = Au.
+Let path : Au' = Au.
 Proof.
   apply path_universe_uncurried.
   apply (equiv_adjointify inv_e e hom2 hom1).
@@ -583,7 +578,7 @@ Defined.
 Definition V_empty : V := set (Empty_rect (fun _ => V)).
 
 (* The singleton {u} *)
-Definition V_singleton (u : V) := set (Unit_rect u).
+Definition V_singleton (u : V) : V@{U' U} := set (Unit_rect u).
 
 Lemma path_singleton {u v : V} : V_singleton u = V_singleton v <-> u = v.
 Proof.
@@ -596,9 +591,9 @@ Proof.
 Defined.
 
 (* The pair {u,v} *)
-Definition V_pair (u : V) (v : V) : V := set (fun b : Bool => if b then u else v).
+Definition V_pair (u : V) (v : V) : V@{U' U} := set (fun b : Bool => if b then u else v).
 
-Lemma path_pair {u v u' v' : V} : (u = u') * (v = v') -> V_pair u v = V_pair u' v'.
+Lemma path_pair {u v u' v' : V@{U' U}} : (u = u') * (v = v') -> V_pair u v = V_pair u' v'.
 Proof.
   intros (H1, H2). apply setext'. split.
   + apply Bool_rect. apply min1; exists true. assumption.
